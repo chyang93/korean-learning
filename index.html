@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>韓文學習程式</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <div class="top-toolbar">
+      <div class="status-indicator">
+        <span id="speed-display">1.0x</span>
+        <input id="speed-slider" type="range" min="0.5" max="1.5" step="0.1" value="1" />
+        <span id="audio-status">待機</span>
+      </div>
+      <div class="toolbar-actions">
+        <div id="user-profile-area" class="user-profile-area"></div>
+        <button class="icon-btn" id="home-btn" title="回主選單" style="display: none;"><i class="fas fa-home"></i></button>
+        <button class="icon-btn" id="toggle-voice" title="啟用語音"><i class="fas fa-volume-up"></i></button>
+        <button class="icon-btn" id="theme-toggle" title="切換模式"><i class="fas fa-moon"></i></button>
+        <button class="icon-btn" id="settings-btn" title="設定"><i class="fas fa-microchip"></i></button>
+      </div>
+    </div>
+
+    <main class="main-menu">
+      <header class="title-section">
+        <h1 class="tech-title" data-text="한국어 學習">한국어 學習</h1>
+        <div class="subtitle">v5.3-Codex 系統已就緒</div>
+      </header>
+
+      <div id="user-status-bar" style="text-align: center; margin-bottom: 20px;"></div>
+
+<div class="button-grid" aria-label="主選單">
+        <button class="menu-btn primary" data-view="learning" data-route="start">開始學習</button>
+        <button class="menu-btn" data-view="vocab" data-route="vocabulary">
+          <i class="fas fa-book"></i> 單字庫
+        </button>
+        <button class="menu-btn" data-view="grammar" data-route="grammar">
+          <i class="fas fa-scroll"></i> 文法庫
+        </button>
+        <button class="menu-btn" data-view="pronunciation" data-route="pronunciation">
+          <i class="fas fa-microphone"></i> 發音庫
+        </button>
+        <button class="menu-btn" data-view="irregular" data-route="irregular">
+          <i class="fas fa-bolt"></i> 不規則變化
+        </button>
+        <button class="menu-btn" data-view="vocab-test" data-route="vocab-test">
+          <i class="fas fa-vial"></i> 單字測試
+        </button>
+        <button class="menu-btn center-btn" data-view="typing" data-route="chat">
+          <i class="fas fa-laptop-code"></i> 全能測試
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <main class="app-content">
+    <section id="view-start" class="view"></section>
+    <section id="view-vocabulary" class="view hidden"></section>
+    <section id="view-pronunciation" class="view hidden"></section>
+    <section id="view-vocab-test" class="view hidden"></section>
+    <section id="view-grammar" class="view hidden"></section>
+    <section id="view-irregular" class="view hidden"></section>
+    <section id="view-chat" class="view hidden"></section>
+  </main>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog" id="settingsForm">
+      <h2>系統設定</h2>
+
+      <label class="checkbox-row">
+        <input id="showPronunciationHints" type="checkbox" />
+        顯示連音提示（底線標註）
+      </label>
+
+      <label class="checkbox-row">
+        <input id="liaisonContrast" type="checkbox" />
+        啟用連音高對比顯示（反白/黑背景）
+      </label>
+
+      <label class="checkbox-row">
+        <input id="speakDialogueSpeaker" type="checkbox" />
+        朗讀對話時唸出 A 和 B
+      </label>
+
+      <label class="checkbox-row">
+        <input id="autoPlayCorrect" type="checkbox" />
+        全能測試時答對後自動播放韓文語音
+      </label>
+
+      <label class="checkbox-row">
+        <input id="syncTestVocabBookmark" type="checkbox" />
+        自動將全能測驗中的單字標記同步至「單字庫標記」
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" id="saveSettingsBtn" class="btn">儲存設定</button>
+        <button type="submit" class="btn secondary">關閉</button>
+        <button type="button" id="clearMemoryBtn" class="btn" style="background-color: var(--danger); border-color: var(--danger); color: white; margin-left: auto;">清除記憶</button>
+      </div>
+      <p id="settingsMessage" class="message"></p>
+    </form>
+  </dialog>
+
+  <dialog id="levelAssessmentDialog" class="settings-dialog">
+    <form method="dialog">
+      <h2 style="color: var(--neon-cyan); text-align: center;">🚀 歡迎！請選擇您的韓文程度</h2>
+      <p class="message" style="text-align: center; margin-bottom: 15px;">我們將為您安排最適合的起始章節：</p>
+      
+      <div class="item-list">
+        <button type="button" class="btn secondary choice-btn" data-level="0" style="text-align: left; padding: 15px;">
+          <strong style="font-size: 1.1rem; color: var(--neon-color);">🌱 0基礎</strong><br>
+          <span style="font-size: 0.9rem; color: var(--text-main);">從發音開始學習 (-200)</span>
+        </button>
+        <button type="button" class="btn secondary choice-btn" data-level="1" style="text-align: left; padding: 15px;">
+          <strong style="font-size: 1.1rem; color: var(--neon-color);">⭐ 已會40音</strong><br>
+          <span style="font-size: 0.9rem; color: var(--text-main);">從收尾音開始學習 (-149)</span>
+        </button>
+        <button type="button" class="btn secondary choice-btn" data-level="2" style="text-align: left; padding: 15px;">
+          <strong style="font-size: 1.1rem; color: var(--neon-color);">🌟 已會40音及所有音變變化</strong><br>
+          <span style="font-size: 0.9rem; color: var(--text-main);">從不規則變化開始學習 (132)</span>
+        </button>
+        <button type="button" class="btn secondary choice-btn" data-level="3" style="text-align: left; padding: 15px;">
+          <strong style="font-size: 1.1rem; color: var(--neon-color);">📘 開始學文法</strong><br>
+          <span style="font-size: 0.9rem; color: var(--text-main);">進入文法學習 (-118)</span>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="emptyStateTemplate">
+    <div class="card empty">暫無資料</div>
+  </template>
+
+  <dialog id="testHistoryDialog" class="settings-dialog" style="width: 95%; max-width: 600px; max-height: 85vh; overflow-y: auto; padding: 0;">
+    <div style="padding: 15px; position: sticky; top: 0; background: var(--bg-dark); z-index: 10; border-bottom: 1px solid var(--border-color);">
+      <h2 style="color: var(--neon-cyan); text-align: center; margin: 0;">📊 測驗歷史紀錄</h2>
+    </div>
+
+    <div id="testHistoryContent" style="padding: 15px;"></div>
+
+    <div style="text-align: center; padding: 15px; position: sticky; bottom: 0; background: var(--bg-dark); border-top: 1px solid var(--border-color);">
+      <button id="btn-clear-all-history" class="btn" style="background: var(--danger); color: white; margin-right: 10px;">🗑️ 刪除全部紀錄</button>
+      <button onclick="document.getElementById('testHistoryDialog').close()" class="btn secondary">關閉</button>
+    </div>
+  </dialog>
+
+  <dialog id="chapterSelectDialog" class="settings-dialog" style="width: 95%; max-width: 550px; max-height: 85vh; padding: 0; border-radius: 12px; overflow: hidden;">
+    <div style="padding: 15px; background: var(--bg-dark); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="color: var(--neon-cyan); margin: 0; font-size: 1.2rem;"><i class="fas fa-list-check"></i> 選取章節</h2>
+      <span id="selectedCountDisplay" style="color: var(--neon-color); font-weight: bold; font-size: 1rem;">已選 0 個</span>
+    </div>
+    <div style="padding: 15px; background: var(--card-bg);">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; border-bottom: 1px dashed var(--border-color); padding-bottom: 10px;">
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="quickSelectChapters('learned')">🎯 已學過章節</button>
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="quickSelectChapters('error')">🔥 錯誤率最高</button>
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="quickSelectChapters('bookmarked')">⭐ 含標記內容</button>
+        <div style="flex: 1;"></div>
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="selectAllChapters()">全選</button>
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="clearAllChapters()">清空</button>
+      </div>
+      <div id="chapterGridContent" class="chapter-grid" style="overflow-y: auto; max-height: calc(85vh - 200px);"></div>
+    </div>
+    <div style="text-align: right; padding: 15px; background: var(--bg-dark); border-top: 1px solid var(--border-color);">
+      <button class="btn secondary" onclick="document.getElementById('chapterSelectDialog').close()" style="margin-right: 10px;">取消</button>
+      <button class="btn" onclick="saveChapterSelection()" style="background-color: var(--neon-color); color: #fff; border: none; font-weight: bold;">確認</button>
+    </div>
+  </dialog>
+
+  <dialog id="testBookmarkDialog" class="settings-dialog" style="width: 95%; max-width: 600px; max-height: 85vh; padding: 0; overflow-y: auto;">
+    <div style="padding: 15px; position: sticky; top: 0; background: var(--bg-dark); z-index: 10; border-bottom: 1px solid var(--border-color);">
+      <h2 id="testBookmarkTitle" style="color: #ffc107; text-align: center; margin: 0;">⭐ 標記紀錄</h2>
+    </div>
+    <div id="testBookmarkContent" style="padding: 15px;"></div>
+    <div style="text-align: center; padding: 15px; position: sticky; bottom: 0; background: var(--bg-dark); border-top: 1px solid var(--border-color);">
+      <button id="btn-clear-test-bookmarks" class="btn" style="background: var(--danger); color: white; margin-right: 10px;">🗑️ 刪除全部標記</button>
+      <button onclick="document.getElementById('testBookmarkDialog').close()" class="btn secondary">關閉</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

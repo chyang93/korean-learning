@@ -1,0 +1,66 @@
+{
+    "id": 83,
+    "title": "Part 83",
+    "part": 83,
+    "introDialogue": {
+        "A": "연습 문장 83 입니까?",
+        "A_zh": "練習句子 83 嗎？",
+        "B": "네, 연습 문장 83 입니다.",
+        "B_zh": "是的，這是練習句子 83。",
+        "vocabBreakdown": [
+            {
+                "ko": "연습",
+                "zh": "練習"
+            },
+            {
+                "ko": "문장",
+                "zh": "句子"
+            }
+        ]
+    },
+    "vocabBreakdown": [
+        {
+            "id": "V001",
+            "ko": "연습",
+            "zh": "練習"
+        },
+        {
+            "id": "V002",
+            "ko": "문장",
+            "zh": "句子"
+        }
+    ],
+    "grammarRule": {
+        "pattern": "",
+        "meaning": "第 83 課文法解釋。",
+        "rule": ""
+    },
+    "examples": [
+        {
+            "id": "E083-01",
+            "ko": "예문 83-1 입니다.",
+            "zh": "例句 83-1。",
+            "audio": "",
+            "speedSupport": true
+        }
+    ],
+    "speech": {
+        "defaultSpeed": 1.0,
+        "speedOptions": [
+            0.5,
+            0.75,
+            1.0,
+            1.25
+        ],
+        "autoPlayExamples": false
+    },
+    "progress": {
+        "grammarCompleted": false,
+        "examplesCompleted": false,
+        "chapterCompleted": false
+    },
+    "relatedVocabIds": [
+        "V001",
+        "V002"
+    ]
+}

@@ -1,0 +1,1381 @@
+﻿{
+    "version":  "2.1.0",
+    "lastUpdated":  "2026-03-11",
+    "chapters":  [
+                     {
+                         "id":  "part-01",
+                         "part":  1,
+                         "title":  "#1 입니까? / 입니다",
+                         "path":  "data/grammar/part-01.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  3,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-02",
+                         "part":  2,
+                         "title":  "#2 아닙니다",
+                         "path":  "data/grammar/part-02.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-03",
+                         "part":  3,
+                         "title":  "#3 초급 문법 3",
+                         "path":  "data/grammar/part-03.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-04",
+                         "part":  4,
+                         "title":  "#4 초급 문법 4",
+                         "path":  "data/grammar/part-04.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-05",
+                         "part":  5,
+                         "title":  "#5 초급 문법 5",
+                         "path":  "data/grammar/part-05.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-06",
+                         "part":  6,
+                         "title":  "#6 초급 문법 6",
+                         "path":  "data/grammar/part-06.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-07",
+                         "part":  7,
+                         "title":  "#7 초급 문법 7",
+                         "path":  "data/grammar/part-07.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-08",
+                         "part":  8,
+                         "title":  "#8 초급 문법 8",
+                         "path":  "data/grammar/part-08.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-09",
+                         "part":  9,
+                         "title":  "#9 초급 문법 9",
+                         "path":  "data/grammar/part-09.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-10",
+                         "part":  10,
+                         "title":  "#10 초급 문법 10",
+                         "path":  "data/grammar/part-10.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-11",
+                         "part":  11,
+                         "title":  "#11 초급 문법 11",
+                         "path":  "data/grammar/part-11.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-12",
+                         "part":  12,
+                         "title":  "#12 초급 문법 12",
+                         "path":  "data/grammar/part-12.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-13",
+                         "part":  13,
+                         "title":  "#13 초급 문법 13",
+                         "path":  "data/grammar/part-13.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-14",
+                         "part":  14,
+                         "title":  "#14 초급 문법 14",
+                         "path":  "data/grammar/part-14.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-15",
+                         "part":  15,
+                         "title":  "#15 초급 문법 15",
+                         "path":  "data/grammar/part-15.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-16",
+                         "part":  16,
+                         "title":  "#16 초급 문법 16",
+                         "path":  "data/grammar/part-16.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-17",
+                         "part":  17,
+                         "title":  "#17 초급 문법 17",
+                         "path":  "data/grammar/part-17.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-18",
+                         "part":  18,
+                         "title":  "#18 초급 문법 18",
+                         "path":  "data/grammar/part-18.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-19",
+                         "part":  19,
+                         "title":  "#19 초급 문법 19",
+                         "path":  "data/grammar/part-19.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-20",
+                         "part":  20,
+                         "title":  "#20 초급 문법 20",
+                         "path":  "data/grammar/part-20.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-21",
+                         "part":  21,
+                         "title":  "#21 초급 문법 21",
+                         "path":  "data/grammar/part-21.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-22",
+                         "part":  22,
+                         "title":  "#22 초급 문법 22",
+                         "path":  "data/grammar/part-22.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-23",
+                         "part":  23,
+                         "title":  "#23 초급 문법 23",
+                         "path":  "data/grammar/part-23.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-24",
+                         "part":  24,
+                         "title":  "#24 초급 문법 24",
+                         "path":  "data/grammar/part-24.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-25",
+                         "part":  25,
+                         "title":  "#25 초급 문법 25",
+                         "path":  "data/grammar/part-25.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  2,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-26",
+                         "part":  26,
+                         "title":  "Part 26",
+                         "path":  "data/grammar/part-26.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-27",
+                         "part":  27,
+                         "title":  "Part 27",
+                         "path":  "data/grammar/part-27.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-28",
+                         "part":  28,
+                         "title":  "Part 28",
+                         "path":  "data/grammar/part-28.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-29",
+                         "part":  29,
+                         "title":  "Part 29",
+                         "path":  "data/grammar/part-29.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-30",
+                         "part":  30,
+                         "title":  "Part 30",
+                         "path":  "data/grammar/part-30.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-31",
+                         "part":  31,
+                         "title":  "Part 31",
+                         "path":  "data/grammar/part-31.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-32",
+                         "part":  32,
+                         "title":  "Part 32",
+                         "path":  "data/grammar/part-32.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-33",
+                         "part":  33,
+                         "title":  "Part 33",
+                         "path":  "data/grammar/part-33.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-34",
+                         "part":  34,
+                         "title":  "Part 34",
+                         "path":  "data/grammar/part-34.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-35",
+                         "part":  35,
+                         "title":  "Part 35",
+                         "path":  "data/grammar/part-35.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-36",
+                         "part":  36,
+                         "title":  "Part 36",
+                         "path":  "data/grammar/part-36.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-37",
+                         "part":  37,
+                         "title":  "Part 37",
+                         "path":  "data/grammar/part-37.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-38",
+                         "part":  38,
+                         "title":  "Part 38",
+                         "path":  "data/grammar/part-38.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-39",
+                         "part":  39,
+                         "title":  "Part 39",
+                         "path":  "data/grammar/part-39.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-40",
+                         "part":  40,
+                         "title":  "Part 40",
+                         "path":  "data/grammar/part-40.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-41",
+                         "part":  41,
+                         "title":  "Part 41",
+                         "path":  "data/grammar/part-41.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-42",
+                         "part":  42,
+                         "title":  "Part 42",
+                         "path":  "data/grammar/part-42.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-43",
+                         "part":  43,
+                         "title":  "Part 43",
+                         "path":  "data/grammar/part-43.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-44",
+                         "part":  44,
+                         "title":  "Part 44",
+                         "path":  "data/grammar/part-44.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-45",
+                         "part":  45,
+                         "title":  "Part 45",
+                         "path":  "data/grammar/part-45.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-46",
+                         "part":  46,
+                         "title":  "Part 46",
+                         "path":  "data/grammar/part-46.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-47",
+                         "part":  47,
+                         "title":  "Part 47",
+                         "path":  "data/grammar/part-47.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-48",
+                         "part":  48,
+                         "title":  "Part 48",
+                         "path":  "data/grammar/part-48.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-49",
+                         "part":  49,
+                         "title":  "Part 49",
+                         "path":  "data/grammar/part-49.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-50",
+                         "part":  50,
+                         "title":  "Part 50",
+                         "path":  "data/grammar/part-50.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-51",
+                         "part":  51,
+                         "title":  "Part 51",
+                         "path":  "data/grammar/part-51.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-52",
+                         "part":  52,
+                         "title":  "Part 52",
+                         "path":  "data/grammar/part-52.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-53",
+                         "part":  53,
+                         "title":  "Part 53",
+                         "path":  "data/grammar/part-53.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-54",
+                         "part":  54,
+                         "title":  "Part 54",
+                         "path":  "data/grammar/part-54.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-55",
+                         "part":  55,
+                         "title":  "Part 55",
+                         "path":  "data/grammar/part-55.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-56",
+                         "part":  56,
+                         "title":  "Part 56",
+                         "path":  "data/grammar/part-56.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-57",
+                         "part":  57,
+                         "title":  "Part 57",
+                         "path":  "data/grammar/part-57.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-58",
+                         "part":  58,
+                         "title":  "Part 58",
+                         "path":  "data/grammar/part-58.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-59",
+                         "part":  59,
+                         "title":  "Part 59",
+                         "path":  "data/grammar/part-59.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-60",
+                         "part":  60,
+                         "title":  "#60 [名詞] 때문에 / [動詞/形容詞]기 때문에 (因為...所以...)",
+                         "path":  "data/grammar/part-60.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  6,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-61",
+                         "part":  61,
+                         "title":  "Part 61",
+                         "path":  "data/grammar/part-61.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-62",
+                         "part":  62,
+                         "title":  "Part 62",
+                         "path":  "data/grammar/part-62.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-63",
+                         "part":  63,
+                         "title":  "Part 63",
+                         "path":  "data/grammar/part-63.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-64",
+                         "part":  64,
+                         "title":  "Part 64",
+                         "path":  "data/grammar/part-64.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-65",
+                         "part":  65,
+                         "title":  "Part 65",
+                         "path":  "data/grammar/part-65.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-66",
+                         "part":  66,
+                         "title":  "Part 66",
+                         "path":  "data/grammar/part-66.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-67",
+                         "part":  67,
+                         "title":  "Part 67",
+                         "path":  "data/grammar/part-67.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-68",
+                         "part":  68,
+                         "title":  "Part 68",
+                         "path":  "data/grammar/part-68.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-69",
+                         "part":  69,
+                         "title":  "Part 69",
+                         "path":  "data/grammar/part-69.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-70",
+                         "part":  70,
+                         "title":  "Part 70",
+                         "path":  "data/grammar/part-70.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-71",
+                         "part":  71,
+                         "title":  "Part 71",
+                         "path":  "data/grammar/part-71.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-72",
+                         "part":  72,
+                         "title":  "Part 72",
+                         "path":  "data/grammar/part-72.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-73",
+                         "part":  73,
+                         "title":  "Part 73",
+                         "path":  "data/grammar/part-73.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-74",
+                         "part":  74,
+                         "title":  "Part 74",
+                         "path":  "data/grammar/part-74.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-75",
+                         "part":  75,
+                         "title":  "Part 75",
+                         "path":  "data/grammar/part-75.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-76",
+                         "part":  76,
+                         "title":  "Part 76",
+                         "path":  "data/grammar/part-76.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-77",
+                         "part":  77,
+                         "title":  "Part 77",
+                         "path":  "data/grammar/part-77.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-78",
+                         "part":  78,
+                         "title":  "Part 78",
+                         "path":  "data/grammar/part-78.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-79",
+                         "part":  79,
+                         "title":  "Part 79",
+                         "path":  "data/grammar/part-79.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-80",
+                         "part":  80,
+                         "title":  "Part 80",
+                         "path":  "data/grammar/part-80.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-81",
+                         "part":  81,
+                         "title":  "Part 81",
+                         "path":  "data/grammar/part-81.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-82",
+                         "part":  82,
+                         "title":  "Part 82",
+                         "path":  "data/grammar/part-82.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-83",
+                         "part":  83,
+                         "title":  "Part 83",
+                         "path":  "data/grammar/part-83.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-84",
+                         "part":  84,
+                         "title":  "Part 84",
+                         "path":  "data/grammar/part-84.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-85",
+                         "part":  85,
+                         "title":  "Part 85",
+                         "path":  "data/grammar/part-85.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-86",
+                         "part":  86,
+                         "title":  "Part 86",
+                         "path":  "data/grammar/part-86.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-87",
+                         "part":  87,
+                         "title":  "Part 87",
+                         "path":  "data/grammar/part-87.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-88",
+                         "part":  88,
+                         "title":  "Part 88",
+                         "path":  "data/grammar/part-88.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-89",
+                         "part":  89,
+                         "title":  "Part 89",
+                         "path":  "data/grammar/part-89.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-90",
+                         "part":  90,
+                         "title":  "Part 90",
+                         "path":  "data/grammar/part-90.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-91",
+                         "part":  91,
+                         "title":  "Part 91",
+                         "path":  "data/grammar/part-91.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-92",
+                         "part":  92,
+                         "title":  "Part 92",
+                         "path":  "data/grammar/part-92.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-93",
+                         "part":  93,
+                         "title":  "Part 93",
+                         "path":  "data/grammar/part-93.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-94",
+                         "part":  94,
+                         "title":  "Part 94",
+                         "path":  "data/grammar/part-94.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-95",
+                         "part":  95,
+                         "title":  "Part 95",
+                         "path":  "data/grammar/part-95.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-96",
+                         "part":  96,
+                         "title":  "Part 96",
+                         "path":  "data/grammar/part-96.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-97",
+                         "part":  97,
+                         "title":  "Part 97",
+                         "path":  "data/grammar/part-97.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-98",
+                         "part":  98,
+                         "title":  "Part 98",
+                         "path":  "data/grammar/part-98.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-99",
+                         "part":  99,
+                         "title":  "Part 99",
+                         "path":  "data/grammar/part-99.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-100",
+                         "part":  100,
+                         "title":  "Part 100",
+                         "path":  "data/grammar/part-100.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-101",
+                         "part":  101,
+                         "title":  "Part 101",
+                         "path":  "data/grammar/part-101.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-102",
+                         "part":  102,
+                         "title":  "Part 102",
+                         "path":  "data/grammar/part-102.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-103",
+                         "part":  103,
+                         "title":  "Part 103",
+                         "path":  "data/grammar/part-103.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-104",
+                         "part":  104,
+                         "title":  "Part 104",
+                         "path":  "data/grammar/part-104.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-105",
+                         "part":  105,
+                         "title":  "Part 105",
+                         "path":  "data/grammar/part-105.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-106",
+                         "part":  106,
+                         "title":  "Part 106",
+                         "path":  "data/grammar/part-106.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-107",
+                         "part":  107,
+                         "title":  "Part 107",
+                         "path":  "data/grammar/part-107.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-108",
+                         "part":  108,
+                         "title":  "Part 108",
+                         "path":  "data/grammar/part-108.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-109",
+                         "part":  109,
+                         "title":  "Part 109",
+                         "path":  "data/grammar/part-109.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-110",
+                         "part":  110,
+                         "title":  "Part 110",
+                         "path":  "data/grammar/part-110.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-111",
+                         "part":  111,
+                         "title":  "Part 111",
+                         "path":  "data/grammar/part-111.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-112",
+                         "part":  112,
+                         "title":  "Part 112",
+                         "path":  "data/grammar/part-112.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-113",
+                         "part":  113,
+                         "title":  "Part 113",
+                         "path":  "data/grammar/part-113.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-114",
+                         "part":  114,
+                         "title":  "Part 114",
+                         "path":  "data/grammar/part-114.json",
+                         "enabled":  true,
+                         "metadata":  {
+                                          "exampleCount":  1,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id": "part-115",
+                         "part": 115,
+                         "title": "Part 115",
+                         "path": "data/grammar/part-115.json",
+                         "enabled": false, 
+                         "metadata": {
+                                          "exampleCount": 1,
+                                          "estimatedMinutes": 5
+                                   }
+                     },
+                     {
+                         "id":  "part-116",
+                         "part":  116,
+                         "title":  "Part 116",
+                         "path":  "data/grammar/part-116.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-117",
+                         "part":  117,
+                         "title":  "Part 117",
+                         "path":  "data/grammar/part-117.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-118",
+                         "part":  118,
+                         "title":  "Part 118",
+                         "path":  "data/grammar/part-118.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-119",
+                         "part":  119,
+                         "title":  "Part 119",
+                         "path":  "data/grammar/part-119.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-120",
+                         "part":  120,
+                         "title":  "Part 120",
+                         "path":  "data/grammar/part-120.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-121",
+                         "part":  121,
+                         "title":  "Part 121",
+                         "path":  "data/grammar/part-121.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-122",
+                         "part":  122,
+                         "title":  "Part 122",
+                         "path":  "data/grammar/part-122.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-123",
+                         "part":  123,
+                         "title":  "Part 123",
+                         "path":  "data/grammar/part-123.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-124",
+                         "part":  124,
+                         "title":  "Part 124",
+                         "path":  "data/grammar/part-124.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     },
+                     {
+                         "id":  "part-125",
+                         "part":  125,
+                         "title":  "Part 125",
+                         "path":  "data/grammar/part-125.json",
+                         "enabled":  false,
+                         "metadata":  {
+                                          "exampleCount":  0,
+                                          "estimatedMinutes":  5
+                                      }
+                     }
+                 ]
+}
