@@ -1492,20 +1492,40 @@ function renderStartView() {
       await safeWait(700, runId);
       await safeSpeak('本章節完成。', runId);
 
-      if (isPron) {
-        updatePronunciationChapterProgress(currentGrammar.id, { chapterCompleted: true });
-        if (!getState().progress.learnedPronunciation.includes(currentGrammar.id)) toggleLearnedPronunciation(currentGrammar.id);
-      } else {
-        updateChapterProgress(currentGrammar.id, { chapterCompleted: true });
-        if (!getState().progress.learnedGrammar.includes(currentGrammar.id)) toggleLearnedGrammar(currentGrammar.id);
+const latestState = getState(); // 🟢 取得最新狀態
+    const currentChapterId = Number(currentGrammar.id);
+
+    if (isPron) {
+      // 🟢 只有當前章節 ID 大於最高紀錄時，才更新線性進度
+      const maxPron = Number(latestState.progress.lastLearnedPronunciationId || -200);
+      if (currentChapterId > maxPron) {
+        setLastLearnedPronunciationId(currentChapterId); //
       }
-      void triggerCloudSave();
-      btnPlay.textContent = '🔄 重新播放';
-    } catch (e) {
-      if (e !== 'ABORT') console.error(e);
-      btnPlay.textContent = '▶️ 開始播放教學';
+      
+      updatePronunciationChapterProgress(currentGrammar.id, { chapterCompleted: true });
+      if (!latestState.progress.learnedPronunciation.includes(currentGrammar.id)) {
+        toggleLearnedPronunciation(currentGrammar.id);
+      }
+    } else {
+      // 🟢 只有當前章節 ID 大於最高紀錄時，才更新線性進度
+      const maxGrammar = Number(latestState.progress.lastLearnedGrammarId || 1);
+      if (currentChapterId > maxGrammar) {
+        setLastLearnedGrammarId(currentChapterId); //
+      }
+
+      updateChapterProgress(currentGrammar.id, { chapterCompleted: true });
+      if (!latestState.progress.learnedGrammar.includes(currentGrammar.id)) {
+        toggleLearnedGrammar(currentGrammar.id);
+      }
     }
-  };
+
+    void triggerCloudSave(); // 🟢 確保同步的是正確的最高進度
+    btnPlay.textContent = '🔄 重新播放';
+  } catch (e) {
+    if (e !== 'ABORT') console.error(e);
+    btnPlay.textContent = '▶️ 開始播放教學';
+  }
+};
 
   btnPlay.addEventListener('click', () => {
     if (btnPlay.textContent.includes('停止')) {
