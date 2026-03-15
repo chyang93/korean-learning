@@ -21,13 +21,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
-  // 🔴 請確保這裡貼上的是你專案的正確配置
-  apiKey: "你的API_KEY",
-  authDomain: "你的AUTH_DOMAIN",
-  projectId: "你的PROJECT_ID",
-  storageBucket: "你的STORAGE_BUCKET",
-  messagingSenderId: "你的MESSAGING_SENDER_ID",
-  appId: "你的APP_ID"
+  apiKey: "AIzaSyBz8pd1IRiU09U-XAm2VEMc1IKuExRh-Ek", // 🟢 你的正確密鑰
+  authDomain: "korean-learning-fcab2.firebaseapp.com", // 🟢 修正後的網域
+  databaseURL: "https://korean-learning-fcab2-default-rtdb.firebaseio.com",
+  projectId: "korean-learning-fcab2",
+  storageBucket: "korean-learning-fcab2.firebasestorage.app",
+  messagingSenderId: "266796944546",
+  appId: "1:266796944546:web:4f8e538cc07173f7f31bfb",
+  measurementId: "G-5LFGG3N8EJ"
 };
 
 // 初始化：這裡只用 const 宣告，不要加上 export 關鍵字
