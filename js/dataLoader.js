@@ -44,7 +44,9 @@ function normalizeChapter(rawData, chapterInfo = null) {
       A: isPronunciation ? (introDialogueRaw.A || '') : fieldOrWarn(introDialogueRaw.A, '', `${chapterInfo?.id}.introDialogue.A`, warnings),
       A_zh: isPronunciation ? (introDialogueRaw.A_zh || '') : fieldOrWarn(introDialogueRaw.A_zh, '', `${chapterInfo?.id}.introDialogue.A_zh`, warnings),
       B: isPronunciation ? (introDialogueRaw.B || '') : fieldOrWarn(introDialogueRaw.B, '', `${chapterInfo?.id}.introDialogue.B`, warnings),
-      B_zh: isPronunciation ? (introDialogueRaw.B_zh || '') : fieldOrWarn(introDialogueRaw.B_zh, '', `${chapterInfo?.id}.introDialogue.B_zh`, warnings)
+      B_zh: isPronunciation ? (introDialogueRaw.B_zh || '') : fieldOrWarn(introDialogueRaw.B_zh, '', `${chapterInfo?.id}.introDialogue.B_zh`, warnings),
+      // 🟢 核心修正：補上單字拆解欄位
+      vocabBreakdown: Array.isArray(introDialogueRaw.vocabBreakdown) ? introDialogueRaw.vocabBreakdown : []
     },
 
     // 2. 文法規則 (補上逗號並整合詳細規則)

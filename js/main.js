@@ -1200,7 +1200,6 @@ function renderStartView() {
         <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 請聽完所有例句並自行跟讀一次後，即可前往下一課。</p>
         <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>已結業 (回主畫面)</button>
         <div style="color: var(--neon-cyan); font-size: 1rem; font-weight: bold; letter-spacing: 1px;">
-          還有一回單字可以學習唷！
         </div>
       </div>`;
   } else {
@@ -1569,19 +1568,19 @@ function renderStartView() {
       btn.dataset.played = 'true';
       btn.style.color = 'var(--neon-color)';
 
-      const activeView = document.querySelector('.view:not(.hidden)');
-      if (activeView) {
-        const allBtns = activeView.querySelectorAll('.play-sentence-btn');
-        if (allBtns.length > 0) {
-          const allPlayed = Array.from(allBtns).every((b) => b.dataset.played === 'true');
-          if (allPlayed) {
-            const hintEl = document.getElementById('completionHint');
-            if (hintEl) {
-              hintEl.innerHTML = '✅ 所有實戰練習皆已跟讀完畢，已解鎖下一課！';
-            }
-            if (typeof unlockNextButton === 'function') {
-              unlockNextButton();
-            }
+      // 🟢 核心修正：只抓取「實戰練習」區塊內的按鈕
+      const examplesContainer = document.getElementById('stage-examples');
+      if (examplesContainer) {
+        const examBtns = examplesContainer.querySelectorAll('.play-sentence-btn');
+        const allPlayed = Array.from(examBtns).every((b) => b.dataset.played === 'true');
+
+        if (allPlayed) {
+          const hintEl = document.getElementById('completionHint');
+          if (hintEl) {
+            hintEl.innerHTML = '✅ 所有實戰練習皆已跟讀完畢，已解鎖下一課！';
+          }
+          if (typeof unlockNextButton === 'function') {
+            unlockNextButton(); // 呼叫解鎖函式
           }
         }
       }
@@ -1614,31 +1613,36 @@ function renderStartView() {
 // 尋找此段監聽器
 container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
   const latestState = getState();
-  const cid = Number(currentId); // 取得目前章節 ID
+  const cid = Number(currentId);
 
   if (isPron && cid === -119) {
     // 🟢 核心修改：發音課最後一關 (-119) 點擊後跳轉
-    setLastLearnedGrammarId(1); // 設定文法庫起始 ID
-    void triggerCloudSave();
-    uiState.viewingId = null;
-    uiState.learningMode = 'grammar'; // 切換模式為文法
-    renderStartView(); // 重新渲染頁面
-    showInfo('🎉 恭喜發音課結業！正在進入文法庫 ID:001');
-  } else if (isPron && cid === -117) {
-    // 原有的邏輯保留或移除（視您的舊進度而定）
     setLastLearnedGrammarId(1);
     void triggerCloudSave();
     uiState.viewingId = null;
     uiState.learningMode = 'grammar';
     renderStartView();
+    showInfo('🎉 恭喜發音課結業！正在進入文法庫 ID:001');
   } else if (!isPron && cid === 115) {
-    // 文法最後一課回到首頁
     window.location.hash = '';
   } else if (nextGrammar) {
-    // 一般線性跳轉邏輯
     if (latestState.mode === 'linear') {
-      isPron ? setLastLearnedPronunciationId(nextGrammar.id) : setLastLearnedGrammarId(nextGrammar.id);
-      void triggerCloudSave();
+      const nextId = Number(nextGrammar.id);
+
+      // 🟢 核心修正：加入 if 判斷，確保進度只增不減
+      if (isPron) {
+        const currentSaved = Number(latestState.progress.lastLearnedPronunciationId || -200);
+        if (nextId > currentSaved) {
+          setLastLearnedPronunciationId(nextId);
+          void triggerCloudSave();
+        }
+      } else {
+        const currentSaved = Number(latestState.progress.lastLearnedGrammarId || 1);
+        if (nextId > currentSaved) {
+          setLastLearnedGrammarId(nextId);
+          void triggerCloudSave();
+        }
+      }
       uiState.viewingId = null;
     } else {
       uiState.viewingId = nextGrammar.id;
