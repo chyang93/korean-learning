@@ -1,36 +1,58 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import {
+// js/firebase-config.js
+
+// 1. 引入 Firebase 核心
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+// 2. 引入 Firestore 模組
+import { 
   getFirestore, 
   collection, 
   addDoc, 
   getDocs, 
   doc, 
-  deleteDoc // 1. 這裡要 import
+  deleteDoc,
+  getDoc,
+  setDoc 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+// 3. 引入 Auth 模組與所有必要工具
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  onAuthStateChanged, // 👈 關鍵：監聽登入狀態
+  signInWithPopup,    // 彈窗登入
+  signOut             // 登出
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+// 4. Firebase 配置 (請確認這裡的值是你專案專用的)
 const firebaseConfig = {
-  apiKey: "AIzaSyBz8pd1IRiU09U-XAm2VEMc1IKuExRh-Ek",
-  authDomain: "korean-learning-fcab2.firebaseapp.com",
-  databaseURL: "https://korean-learning-fcab2-default-rtdb.firebaseio.com",
-  projectId: "korean-learning-fcab2",
-  storageBucket: "korean-learning-fcab2.firebasestorage.app",
-  messagingSenderId: "266796944546",
-  appId: "1:266796944546:web:4f8e538cc07173f7f31bfb",
-  measurementId: "G-5LFGG3N8EJ"
+  apiKey: "你的API_KEY",
+  authDomain: "你的AUTH_DOMAIN",
+  projectId: "你的PROJECT_ID",
+  storageBucket: "你的STORAGE_BUCKET",
+  messagingSenderId: "你的MESSAGING_SENDER_ID",
+  appId: "你的APP_ID"
 };
 
+// 5. 初始化
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();
-
-// 匯出登入/登出與 Firestore 操作函式
-export { db, collection, addDoc, getDocs,signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc, deleteDoc };
+// 🟢 6. 統一匯出 (確保清單內每個名稱都與 main.js 對應)
+export { 
+  auth, 
+  db, 
+  googleProvider, 
+  onAuthStateChanged, // 👈 匯出給 main.js 使用
+  signInWithPopup,
+  signOut,
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  deleteDoc, 
+  getDoc, 
+  setDoc 
+};

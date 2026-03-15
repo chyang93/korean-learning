@@ -73,18 +73,18 @@ export async function loadGrammar() {
 }
 
 /** 🚀 2. 讀取發音庫 (11 個 JSON) **/
+//
 export async function loadPronunciation() {
   const pronunciationParts = [];
-  // 🟢 假設你的發音檔名是從 part-119 到 part-129，或 pronunciation-01 等
-  // 這裡我們針對 11 個檔案進行迴圈讀取
-  for (let i = 116; i <= 126; i++) { // 根據你的 116-126 發音庫建議
-    const filename = `part-${i}.json`; 
+  // 🟢 這裡改為抓取 1 到 11 號發音檔
+  for (let i = 1; i <= 11; i++) {
+    const filename = `pronunciation-${i.toString().padStart(2, '0')}.json`;
     try {
       const raw = await fetchJson(`./data/grammar/${filename}`);
       const clean = normalizeChapter(raw, { id: filename });
       if (clean) pronunciationParts.push(clean);
     } catch (e) {
-      console.warn(`跳過發音檔: ${filename}`);
+      console.warn(`[跳過發音檔] 找不到: ${filename}`); //
     }
   }
   return pronunciationParts;

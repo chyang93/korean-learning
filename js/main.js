@@ -3121,18 +3121,7 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
 
 const IS_DEBUG_MODE = false; // 🟢 上線前改為 false
 
-function updateDebugBadge(id) {
-    const badge = document.getElementById('debug-badge');
-    if (!badge) return;
-    
-    // 只有在 debug 模式下才顯示內容，否則隱藏
-    if (IS_DEBUG_MODE) {
-        badge.style.display = 'block';
-        badge.innerText = `ID: ${id}`;
-    } else {
-        badge.style.display = 'none';
-    }
-}
+
 
 function renderError(message) {
   const app = document.querySelector('main');
