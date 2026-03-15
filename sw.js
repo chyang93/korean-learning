@@ -1,4 +1,4 @@
-const CACHE_NAME = 'korean-app-v4';
+const CACHE_NAME = 'korean-app-v5';
 const GRAMMAR_JSONS = Array.from(
   { length: 118 },
   (_, i) => `./data/grammar/part-${String(i + 1).padStart(2, '0')}.json`
