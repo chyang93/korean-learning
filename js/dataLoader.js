@@ -127,32 +127,45 @@ function normalizeChapterPayload(chapterData, chapterId, partNumber) {
 // js/dataLoader.js
 
 // 1. 讀取文法：只讀取 part-01 到 part-118
+// js/dataLoader.js
+
+// 1. 讀取文法 (1~118 課)
 export async function loadGrammar() {
   const grammarParts = [];
-  // 假設你現在有 118 課文法
   for (let i = 1; i <= 118; i++) {
     const filename = `part-${i.toString().padStart(2, '0')}.json`;
     try {
       const resp = await fetch(`./data/grammar/${filename}`);
       if (!resp.ok) continue;
       const data = await resp.json();
-      grammarParts.push(...data);
+      // 確保加入的是陣列
+      if (Array.isArray(data)) grammarParts.push(...data);
+      else grammarParts.push(data);
     } catch (e) {
-      console.error(`無法載入 ${filename}`, e);
+      console.warn(`跳過文法檔: ${filename}`);
     }
   }
   return grammarParts;
 }
 
-// 2. 讀取發音：讀取專用的發音檔案
+// 2. 讀取發音 (1~11 個 JSON 檔)
 export async function loadPronunciation() {
-  try {
-    const resp = await fetch(`./data/grammar/pronunciation_all.json`);
-    return await resp.json(); // 這邊就會讀到你剛才改名的負數 ID 資料
-  } catch (e) {
-    console.error("無法載入發音資料", e);
-    return [];
+  const pronunciationParts = [];
+  // 🟢 這裡假設你的檔名是 pronunciation-01.json 到 pronunciation-11.json
+  // 如果檔名不同，請將下方的 'pronunciation-' 改成你實際的命名格式
+  for (let i = 1; i <= 11; i++) {
+    const filename = `pronunciation-${i.toString().padStart(2, '0')}.json`;
+    try {
+      const resp = await fetch(`./data/grammar/${filename}`);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (Array.isArray(data)) pronunciationParts.push(...data);
+      else pronunciationParts.push(data);
+    } catch (e) {
+      console.warn(`跳過發音檔: ${filename}`);
+    }
   }
+  return pronunciationParts;
 }
 
 async function loadByParts(baseDir, partCount) {
@@ -187,9 +200,6 @@ async function loadChapterRange(startPart, endPart) {
 }
 
 
-export async function loadPronunciation() {
-  return loadChapterRange(119, 129);
-}
 
 export async function loadVocabulary() {
   try {
