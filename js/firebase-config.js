@@ -10,7 +10,8 @@ import {
   getFirestore,
   doc,
   setDoc,
-  getDoc
+  getDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -31,4 +32,4 @@ export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // 匯出登入/登出與 Firestore 操作函式
-export { signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc };
+export { signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc, deleteDoc };
