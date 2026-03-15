@@ -1,9 +1,6 @@
 // js/firebase-config.js
 
-// 1. 引入 Firebase 核心
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-
-// 2. 引入 Firestore 模組
 import { 
   getFirestore, 
   collection, 
@@ -15,17 +12,16 @@ import {
   setDoc 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// 3. 引入 Auth 模組與所有必要工具
 import { 
   getAuth, 
   GoogleAuthProvider, 
-  onAuthStateChanged, // 👈 關鍵：監聽登入狀態
-  signInWithPopup,    // 彈窗登入
-  signOut             // 登出
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// 4. Firebase 配置 (請確認這裡的值是你專案專用的)
 const firebaseConfig = {
+  // 🔴 請確保這裡貼上的是你專案的正確配置
   apiKey: "你的API_KEY",
   authDomain: "你的AUTH_DOMAIN",
   projectId: "你的PROJECT_ID",
@@ -34,18 +30,18 @@ const firebaseConfig = {
   appId: "你的APP_ID"
 };
 
-// 5. 初始化
+// 初始化：這裡只用 const 宣告，不要加上 export 關鍵字
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-// 🟢 6. 統一匯出 (確保清單內每個名稱都與 main.js 對應)
+// 🟢 唯一導出區塊：每個名稱只會在這裡出現一次
 export { 
   auth, 
   db, 
   googleProvider, 
-  onAuthStateChanged, // 👈 匯出給 main.js 使用
+  onAuthStateChanged, 
   signInWithPopup,
   signOut,
   collection, 
