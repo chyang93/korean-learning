@@ -186,9 +186,6 @@ async function loadChapterRange(startPart, endPart) {
   return (await Promise.all(loadPromises)).flat();
 }
 
-export async function loadGrammar() {
-  return loadChapterRange(1, 118);
-}
 
 export async function loadPronunciation() {
   return loadChapterRange(119, 129);
