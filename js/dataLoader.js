@@ -57,50 +57,58 @@ function normalizeChapter(rawData, chapterInfo = null) {
 }
 
 /** 🚀 1. 讀取文法庫 (1 ~ 118 課) **/
+//
 export async function loadGrammar() {
-  const grammarParts = [];
-  for (let i = 1; i <= 118; i++) {
-    const filename = `part-${i.toString().padStart(2, '0')}.json`;
-    try {
-      const raw = await fetchJson(`./data/grammar/${filename}`);
-      const clean = normalizeChapter(raw, { id: filename });
-      if (clean) grammarParts.push(clean);
-    } catch (e) {
-      // 靜默跳過未定義或 404 的文法檔
+  try {
+    // 🟢 只需要一次 fetch 請求
+    const allData = await fetchJson('./data/grammar/all_chapters.json');
+    
+    if (Array.isArray(allData)) {
+      // 使用 map 進行正規化，確保 UI 邏輯不變
+      return allData.map(item => normalizeChapter(item, { id: 'all_chapters' }));
     }
+    return [];
+  } catch (e) {
+    console.error("讀取合併文法檔失敗:", e);
+    return [];
   }
-  return grammarParts;
 }
 
 /** 🚀 2. 讀取發音庫 (11 個 JSON) **/
 //
+//
 export async function loadPronunciation() {
-  const pronunciationParts = [];
-  // 🟢 這裡改為抓取 1 到 11 號發音檔
-  for (let i = 1; i <= 11; i++) {
-    const filename = `pronunciation-${i.toString().padStart(2, '0')}.json`;
-    try {
-      const raw = await fetchJson(`./data/grammar/${filename}`);
-      const clean = normalizeChapter(raw, { id: filename });
-      if (clean) pronunciationParts.push(clean);
-    } catch (e) {
-      console.warn(`[跳過發音檔] 找不到: ${filename}`); //
+  try {
+    // 🟢 只需要一次 fetch 請求，速度極快
+    const allData = await fetchJson('./data/grammar/all_pronunciations.json');
+    
+    if (Array.isArray(allData)) {
+      // 確保每一課都經過 normalizeChapter 處理以維持 UI 一致性
+      return allData.map(item => normalizeChapter(item, { id: 'all_pronunciations' }));
     }
+    return [];
+  } catch (e) {
+    console.error("讀取合併發音檔失敗:", e);
+    return [];
   }
-  return pronunciationParts;
 }
 
 /** 🚀 3. 讀取單字庫 (30 個分章) **/
+//
 export async function loadVocabulary() {
-  const allVocab = [];
-  for (let i = 1; i <= 30; i++) {
-    const filename = `./data/vocabulary/part-${i.toString().padStart(2, '0')}.json`;
-    try {
-      const data = await fetchJson(filename);
-      allVocab.push(...(Array.isArray(data) ? data : [data]));
-    } catch (e) { continue; }
+  try {
+    // 🟢 僅需一次請求即可獲取所有單字資料
+    const allVocab = await fetchJson('./data/vocabulary/all_vocabularies.json');
+    
+    if (Array.isArray(allData)) {
+      // 維持原有的資料結構，不影響 main.js 的顯示邏輯
+      return allData.map(item => normalizeChapter(item, { id: 'all_vocab' }));
+    }
+    return [];
+  } catch (e) {
+    console.error("讀取合併單字檔失敗:", e);
+    return [];
   }
-  return allVocab;
 }
 
 /** 🚀 4. 不規則變化 **/
