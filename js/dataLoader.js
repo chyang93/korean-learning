@@ -5,6 +5,7 @@ const ERROR_CODES = {
   missingField: 'WARN_MISSING_FIELD'
 };
 
+/** 🟢 基礎抓取工具 **/
 async function fetchJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
   if (!response.ok) {
@@ -13,6 +14,7 @@ async function fetchJson(path) {
   return response.json();
 }
 
+/** 🟡 警告檢查器：確保 UI 欄位不漏接 **/
 function fieldOrWarn(value, fallback, path, warnings) {
   if (value === undefined || value === null) {
     warnings.push(`${ERROR_CODES.missingField}: ${path}`);
@@ -21,146 +23,66 @@ function fieldOrWarn(value, fallback, path, warnings) {
   return value;
 }
 
+/** 🔵 資料正規化：將 JSON 轉為 App 預期格式 **/
 function normalizeChapter(rawData, chapterInfo = null) {
-  if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
-    throw new Error(`${ERROR_CODES.chapterSchema}: ${chapterInfo?.id || 'unknown'} 不是合法章節物件`);
-  }
+  // 支援 JSON 裡面包的是陣列的情況
+  const data = Array.isArray(rawData) ? rawData[0] : rawData;
+  if (!data || typeof data !== 'object') return null;
 
   const warnings = [];
-
-// 在 normalizeChapter 函式內部替換此段
-const introDialogueRaw = rawData.introDialogue || {};
-const grammarRuleRaw = rawData.grammarRule || {};
-
-// 🟢 智慧型文法正規化：確保詳細規則與說明絕對不漏接
-const normalizedGrammarRule = {
-  // 1. 抓取解釋 (explanation)
-  explanation: grammarRuleRaw.explanation || grammarRuleRaw.meaning || '',
-
-  // 2. 抓取說明 (note)：若 rule 是字串則視為說明
-  note: grammarRuleRaw.note || 
-        (typeof grammarRuleRaw.rule === 'string' ? grammarRuleRaw.rule : '') || 
-        grammarRuleRaw.pattern || '',
-
-  // 3. 抓取詳細規則 (detailedInstruction)：若 rule 是陣列則視為詳細規則
-  detailedInstruction: Array.isArray(grammarRuleRaw.detailedInstruction)
-    ? grammarRuleRaw.detailedInstruction
-    : (Array.isArray(grammarRuleRaw.rule) ? grammarRuleRaw.rule : []),
-
-  // 4. 其他欄位與相容性欄位
-  exampleStructure: grammarRuleRaw.exampleStructure || '',
-  pattern: Array.isArray(grammarRuleRaw.pattern) ? grammarRuleRaw.pattern : [],
-  meaning: Array.isArray(grammarRuleRaw.meaning) ? grammarRuleRaw.meaning : [],
-  rule: typeof grammarRuleRaw.rule === 'string' ? grammarRuleRaw.rule : ''
-};
-
-// 🟢 處理單字拆解 (vocabBreakdown)
-const vocabBreakdown = Array.isArray(rawData.vocabBreakdown)
-  ? rawData.vocabBreakdown
-  : (Array.isArray(introDialogueRaw.vocabBreakdown) ? introDialogueRaw.vocabBreakdown : []);
+  const introDialogueRaw = data.introDialogue || {};
+  const grammarRuleRaw = data.grammarRule || {};
 
   const normalized = {
-    id: fieldOrWarn(rawData.id, chapterInfo?.part || 0, `${chapterInfo?.id || 'chapter'}.id`, warnings),
-    title: fieldOrWarn(rawData.title, chapterInfo?.title || '未命名章節', `${chapterInfo?.id || 'chapter'}.title`, warnings),
-    part: fieldOrWarn(rawData.part, chapterInfo?.part || 0, `${chapterInfo?.id || 'chapter'}.part`, warnings),
+    id: fieldOrWarn(data.id, 0, `${chapterInfo?.id}.id`, warnings),
+    title: fieldOrWarn(data.title, '未命名章節', `${chapterInfo?.id}.title`, warnings),
+    part: fieldOrWarn(data.part, 0, `${chapterInfo?.id}.part`, warnings),
     introDialogue: {
-      A: fieldOrWarn(introDialogueRaw.A, '', `${chapterInfo?.id || 'chapter'}.introDialogue.A`, warnings),
-      A_zh: fieldOrWarn(introDialogueRaw.A_zh, '', `${chapterInfo?.id || 'chapter'}.introDialogue.A_zh`, warnings),
-      B: fieldOrWarn(introDialogueRaw.B, '', `${chapterInfo?.id || 'chapter'}.introDialogue.B`, warnings),
-      B_zh: fieldOrWarn(introDialogueRaw.B_zh, '', `${chapterInfo?.id || 'chapter'}.introDialogue.B_zh`, warnings),
-      vocabBreakdown
+      A: fieldOrWarn(introDialogueRaw.A, '', `${chapterInfo?.id}.introDialogue.A`, warnings),
+      A_zh: fieldOrWarn(introDialogueRaw.A_zh, '', `${chapterInfo?.id}.introDialogue.A_zh`, warnings),
+      B: fieldOrWarn(introDialogueRaw.B, '', `${chapterInfo?.id}.introDialogue.B`, warnings),
+      B_zh: fieldOrWarn(introDialogueRaw.B_zh, '', `${chapterInfo?.id}.introDialogue.B_zh`, warnings)
     },
-    vocabBreakdown,
-    grammarRule: normalizedGrammarRule,
-    detailedInstruction: normalizedGrammarRule.detailedInstruction,
-    examples: Array.isArray(rawData.examples)
-      ? rawData.examples.map((example, index) => ({
-          id: example?.id || `E${String(index + 1).padStart(3, '0')}`,
-          ko: example?.ko || '',
-          zh: example?.zh || '',
-          audio: example?.audio || '',
-          speedSupport: example?.speedSupport !== false
-        }))
-      : [],
-    speech: {
-      defaultSpeed: Number(rawData.speech?.defaultSpeed) || 1.0,
-      speedOptions: Array.isArray(rawData.speech?.speedOptions) ? rawData.speech.speedOptions : [0.5, 0.75, 1.0, 1.25],
-      autoPlayExamples: Boolean(rawData.speech?.autoPlayExamples)
+    grammarRule: {
+      explanation: grammarRuleRaw.explanation || '',
+      pattern: grammarRuleRaw.pattern || '',
+      note: grammarRuleRaw.note || ''
     },
-    progress: {
-      grammarCompleted: Boolean(rawData.progress?.grammarCompleted),
-      examplesCompleted: Boolean(rawData.progress?.examplesCompleted),
-      chapterCompleted: Boolean(rawData.progress?.chapterCompleted)
-    },
-    relatedVocabIds: Array.isArray(rawData.relatedVocabIds) ? rawData.relatedVocabIds : []
+    examples: Array.isArray(data.examples) ? data.examples : [],
+    relatedVocabIds: Array.isArray(data.relatedVocabIds) ? data.relatedVocabIds : []
   };
 
-  if (!normalized.grammarRule.pattern.length && normalized.grammarRule.explanation) {
-    warnings.push(`${ERROR_CODES.missingField}: ${chapterInfo?.id || 'chapter'}.grammarRule.pattern`);
-  }
-
-  if (warnings.length) {
-    console.warn(...warnings);
-  }
-
+  if (warnings.length) console.warn(...warnings);
   return normalized;
 }
 
-function normalizeChapterPayload(chapterData, chapterId, partNumber) {
-  const chapterInfo = {
-    id: `part-${String(partNumber).padStart(2, '0')}`,
-    part: partNumber,
-    title: `Part ${partNumber}`
-  };
-
-  if (Array.isArray(chapterData)) {
-    return chapterData.map((item) => normalizeChapter(item, chapterInfo));
-  }
-
-  if (typeof chapterData === 'object' && chapterData !== null) {
-    return [normalizeChapter(chapterData, chapterInfo)];
-  }
-
-  throw new Error(`${ERROR_CODES.chapterSchema}: ${chapterId} 不是合法格式`);
-}
-
-// js/dataLoader.js
-
-// 1. 讀取文法：只讀取 part-01 到 part-118
-// js/dataLoader.js
-
-// 1. 讀取文法 (1~118 課)
+/** 🚀 1. 讀取文法庫 (1 ~ 118 課) **/
 export async function loadGrammar() {
   const grammarParts = [];
   for (let i = 1; i <= 118; i++) {
     const filename = `part-${i.toString().padStart(2, '0')}.json`;
     try {
-      const resp = await fetch(`./data/grammar/${filename}`);
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      // 確保加入的是陣列
-      if (Array.isArray(data)) grammarParts.push(...data);
-      else grammarParts.push(data);
+      const raw = await fetchJson(`./data/grammar/${filename}`);
+      const clean = normalizeChapter(raw, { id: filename });
+      if (clean) grammarParts.push(clean);
     } catch (e) {
-      console.warn(`跳過文法檔: ${filename}`);
+      // 靜默跳過未定義或 404 的文法檔
     }
   }
   return grammarParts;
 }
 
-// 2. 讀取發音 (1~11 個 JSON 檔)
+/** 🚀 2. 讀取發音庫 (11 個 JSON) **/
 export async function loadPronunciation() {
   const pronunciationParts = [];
-  // 🟢 這裡假設你的檔名是 pronunciation-01.json 到 pronunciation-11.json
-  // 如果檔名不同，請將下方的 'pronunciation-' 改成你實際的命名格式
-  for (let i = 1; i <= 11; i++) {
-    const filename = `pronunciation-${i.toString().padStart(2, '0')}.json`;
+  // 🟢 假設你的發音檔名是從 part-119 到 part-129，或 pronunciation-01 等
+  // 這裡我們針對 11 個檔案進行迴圈讀取
+  for (let i = 116; i <= 126; i++) { // 根據你的 116-126 發音庫建議
+    const filename = `part-${i}.json`; 
     try {
-      const resp = await fetch(`./data/grammar/${filename}`);
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      if (Array.isArray(data)) pronunciationParts.push(...data);
-      else pronunciationParts.push(data);
+      const raw = await fetchJson(`./data/grammar/${filename}`);
+      const clean = normalizeChapter(raw, { id: filename });
+      if (clean) pronunciationParts.push(clean);
     } catch (e) {
       console.warn(`跳過發音檔: ${filename}`);
     }
@@ -168,53 +90,24 @@ export async function loadPronunciation() {
   return pronunciationParts;
 }
 
-async function loadByParts(baseDir, partCount) {
-  const requests = Array.from({ length: partCount }, (_, idx) => {
-    const part = String(idx + 1).padStart(2, '0');
-    return fetchJson(`./data/${baseDir}/part-${part}.json`);
-  });
-
-  const chunks = await Promise.all(requests);
-  return chunks.flat();
-}
-
-function buildGrammarPath(partNumber) {
-  const part = String(partNumber).padStart(2, '0');
-  return `./data/grammar/part-${part}.json`;
-}
-
-async function loadChapterRange(startPart, endPart) {
-  const loadPromises = Array.from({ length: endPart - startPart + 1 }, async (_, idx) => {
-    const part = startPart + idx;
-    const chapterId = `part-${String(part).padStart(2, '0')}`;
-    try {
-      const chapterData = await fetchJson(buildGrammarPath(part));
-      return normalizeChapterPayload(chapterData, chapterId, part);
-    } catch (error) {
-      console.warn(`[跳過章節] ${chapterId} 載入失敗:`, error.message);
-      return [];
-    }
-  });
-
-  return (await Promise.all(loadPromises)).flat();
-}
-
-
-
+/** 🚀 3. 讀取單字庫 (30 個分章) **/
 export async function loadVocabulary() {
-  try {
-    return await loadByParts('vocabulary', 30);
-  } catch (error) {
-    console.warn('讀取分章 vocabulary 失敗，改讀單一檔案：', error);
-    return fetchJson('./data/vocabulary.json');
+  const allVocab = [];
+  for (let i = 1; i <= 30; i++) {
+    const filename = `./data/vocabulary/part-${i.toString().padStart(2, '0')}.json`;
+    try {
+      const data = await fetchJson(filename);
+      allVocab.push(...(Array.isArray(data) ? data : [data]));
+    } catch (e) { continue; }
   }
+  return allVocab;
 }
 
+/** 🚀 4. 不規則變化 **/
 export async function loadIrregularData() {
   try {
     return await fetchJson('./data/irregular.json');
   } catch (error) {
-    console.warn('讀取 irregular.json 失敗，改用空資料。', error);
     return {};
   }
 }
