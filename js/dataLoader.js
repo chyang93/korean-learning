@@ -23,6 +23,24 @@ function fieldOrWarn(value, fallback, path, warnings) {
   return value;
 }
 
+//
+function normalizeChapter(data, meta) {
+  // ... 其他程式碼 ...
+  
+  // 🟢 檢查對話欄位是否存在，不存在則給予預設空值
+  const introDialogue = data.introDialogue || { A: "", A_zh: "", B: "", B_zh: "" };
+  
+  // 如果你想保留警告但不想讓它噴這麼多，可以加個判斷
+  if (!data.introDialogue && !meta.id.includes('pronunciation')) {
+    console.warn(`WARN_MISSING_FIELD: ${meta.id}.introDialogue`);
+  }
+
+  return {
+    ...data,
+    introDialogue
+  };
+}
+
 /** 🔵 資料正規化：將 JSON 轉為 App 預期格式 **/
 function normalizeChapter(rawData, chapterInfo = null) {
   // 支援 JSON 裡面包的是陣列的情況

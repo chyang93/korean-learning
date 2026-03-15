@@ -1,7 +1,7 @@
 // sw.js
 
 // 1. 提升版本號：確保瀏覽器偵測到 sw.js 變動並重新下載資源
-const CACHE_NAME = 'korean-app-v20'; 
+const CACHE_NAME = 'korean-app-v21'; 
 
 // 2. 生成 118 課文法 JSON 路徑
 const GRAMMAR_JSONS = Array.from(
@@ -45,11 +45,12 @@ const ASSETS_TO_CACHE = [
 
 // 5. 安裝階段：將清單內所有資源存入 Cache Storage
 // sw.js 強化版
+//
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('🧪 正在逐一同步資源...');
-      // 使用 map 讓每個檔案獨立處理，避免一個 404 毀掉全部
+      // 🟢 改用 map 搭配 Promise.allSettled，避免一個 404 毀掉全部
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(url => 
           cache.add(url).catch(err => console.error(`❌ 快取失敗: ${url}`))
