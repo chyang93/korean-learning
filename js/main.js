@@ -222,6 +222,7 @@ async function triggerCloudSave() {
   }
 }
 
+// 優化後的 handleProgressSync
 async function handleProgressSync(user) {
   const userRef = doc(db, 'users', user.uid);
   const docSnap = await getDoc(userRef);
@@ -229,33 +230,41 @@ async function handleProgressSync(user) {
 
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
-    const shouldPrompt = hasMeaningfulConflict(localState, cloudState);
+    
+    // 🟢 檢查是否有任何不同（不只是 meaningful conflict）
+    const isDifferent = JSON.stringify(localState.progress) !== JSON.stringify(cloudState.progress);
 
-    if (shouldPrompt) {
-      const useMerge = window.confirm(
-        '偵測到本地與雲端都有不同進度。\n\n按「確定」: 合併 learned/bookmarked 進度\n按「取消」: 使用雲端覆蓋本地'
+    if (isDifferent) {
+      const localId = localState.progress.currentLinearId || -200;
+      const cloudId = cloudState.progress.currentLinearId || -200;
+
+      // 🚀 彈出更具體的詢問視窗
+      const choice = window.confirm(
+        `🔍 發現雲端存檔與本地進度不一致：\n\n` +
+        `☁️ 雲端進度：ID ${cloudId}\n` +
+        `📱 本地進度：ID ${localId}\n\n` +
+        `按「確定」：使用雲端資料覆蓋本地（推薦）\n` +
+        `按「取消」：保留目前本地進度，並更新至雲端`
       );
 
-      if (useMerge) {
-        const mergedState = mergeStateForConflict(localState, cloudState);
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(mergedState));
-        await setDoc(userRef, mergedState);
-        console.log('🧩 已合併本地與雲端進度 (learned/bookmarked union)');
-        showInfo('🧩 已合併本地與雲端進度');
+      if (choice) {
+        // 使用者選擇雲端覆蓋本地
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
+        showInfo('✅ 已成功載入雲端進度');
         refreshCurrentRoute();
+        return;
+      } else {
+        // 使用者選擇保留本地，並強制更新至雲端備份
+        await setDoc(userRef, localState);
+        showInfo('🚀 已將本地最新進度同步至雲端');
         return;
       }
     }
-
-    localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
-    console.log('✅ 已使用雲端進度覆蓋本地');
-    showInfo('✅ 已載入雲端進度');
-    refreshCurrentRoute();
-    return;
+  } else {
+    // 雲端完全沒資料，直接上傳
+    await setDoc(userRef, localState);
+    console.log('🚀 偵測到新使用者，已初始化雲端存檔');
   }
-
-  await setDoc(userRef, localState);
-  console.log('🚀 偵測到新使用者，已將本地進度初始化至雲端');
 }
 
 function updateUserUI(user) {
