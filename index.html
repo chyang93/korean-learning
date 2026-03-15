@@ -127,7 +127,7 @@
         </button>
         <button type="button" class="btn secondary choice-btn" data-level="2" style="text-align: left; padding: 15px;">
           <strong style="font-size: 1.1rem; color: var(--neon-color);">🌟 已會40音及所有音變變化</strong><br>
-          <span style="font-size: 0.9rem; color: var(--text-main);">從不規則變化開始學習 (132)</span>
+          <span style="font-size: 0.9rem; color: var(--text-main);">從不規則變化開始學習 (-132)</span>
         </button>
         <button type="button" class="btn secondary choice-btn" data-level="3" style="text-align: left; padding: 15px;">
           <strong style="font-size: 1.1rem; color: var(--neon-color);">📘 開始學文法</strong><br>
@@ -186,6 +186,11 @@
       <button onclick="document.getElementById('testBookmarkDialog').close()" class="btn secondary">關閉</button>
     </div>
   </dialog>
+
+  <div id="offline-toast" class="offline-toast hidden">
+    <i class="fas fa-wifi-slash"></i>
+    <span>目前處於離線模式，依然可以繼續學習</span>
+  </div>
 
   <script type="module" src="./js/main.js"></script>
 </body>

@@ -62,6 +62,63 @@ body.is-offline .online-status {
   display: block;
 }
 
+.offline-toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.95);
+  color: #ffc107;
+  padding: 12px 24px;
+  border-radius: 50px;
+  border: 1px solid #ffc107;
+  box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.offline-toast.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(50px);
+}
+
+.update-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--neon-color);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  animation: slideDown 0.5s ease;
+}
+
+.update-toast button {
+  background: white;
+  color: var(--neon-color);
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+@keyframes slideDown {
+  from { transform: translate(-50%, -100px); }
+  to { transform: translate(-50%, 0); }
+}
+
 /* 切換：淺色模式 (科研白) */
 body.light-mode {
   --bg-dark: #f0f4f8;
@@ -230,6 +287,7 @@ body.light-mode {
   max-width: 500px;
   margin: 0 auto;
 }
+
 
 /* 第一列：開始學習 (佔滿 6 欄，全寬) */
 .menu-btn.primary {

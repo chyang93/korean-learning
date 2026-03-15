@@ -51,46 +51,48 @@ import {
 } from './firebase-config.js';
 import { OfflineQuizEngine } from './quizEngine.js';
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('./sw.js')
-      .then((reg) => {
-        console.log('✅ PWA 服務啟動成功！', reg);
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('./sw.js');
+
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
           if (!newWorker) {
             return;
           }
 
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              showUpdateNotification();
+              showUpdateToast();
             }
           });
         });
-      })
-      .catch((err) => console.log('❌ PWA 註冊失敗', err));
-  });
+
+        console.log('✅ PWA 服務註冊成功');
+      } catch (err) {
+        console.error('❌ PWA 註冊失敗:', err);
+      }
+    });
+  }
 }
 
-function showUpdateNotification() {
-  if (document.getElementById('sw-update-note')) {
+function showUpdateToast() {
+  if (document.querySelector('.update-toast')) {
     return;
   }
 
-  const note = document.createElement('div');
-  note.id = 'sw-update-note';
-  note.innerHTML = `
-    <div style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
-                background:#00ffc8; color:#000; padding:12px 24px; border-radius:30px;
-                box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:9999; font-weight:bold; cursor:pointer;">
-      ✨ 發現新版本！點擊更新內容
-    </div>
+  const toast = document.createElement('div');
+  toast.className = 'update-toast';
+  toast.innerHTML = `
+    <span>🚀 發現新的課文內容！</span>
+    <button onclick="window.location.reload()">立即更新</button>
   `;
-  note.onclick = () => window.location.reload();
-  document.body.appendChild(note);
+  document.body.appendChild(toast);
 }
+
+registerServiceWorker();
 
 let globalAbortSignal = 0;
 let shouldJumpAfterAssessment = false;
@@ -422,6 +424,7 @@ const audioController = {
 
 async function init() {
   initNetworkStatusBadge();
+  initOfflineDetection();
 
   // 🟢 核心修正：全域監聽，只要有任何點擊就嘗試啟動語音環境
   document.addEventListener('click', () => {
@@ -1628,9 +1631,6 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
   }
 });
 
-  let debugEl = document.getElementById('debug-badge');
-  if (!debugEl) { debugEl = document.createElement('div'); debugEl.id = 'debug-badge'; document.body.appendChild(debugEl); }
-  debugEl.innerHTML = `MODE: ${uiState.learningMode}<br>ID: ${currentId}<br>DATA: ${sourceData.length}`;
 }
 
 function renderVocabularyView() {
@@ -3201,6 +3201,30 @@ function initNetworkStatusBadge() {
     updateOfflineVisualState();
     showInfo('🛰️ 網路中斷，已切換至離線模式');
   });
+}
+
+function initOfflineDetection() {
+  const offlineToast = document.getElementById('offline-toast');
+  if (!offlineToast) {
+    return;
+  }
+
+  const updateStatus = () => {
+    if (navigator.onLine) {
+      offlineToast.classList.add('hidden');
+      console.log('🌐 系統已恢復連線');
+    } else {
+      offlineToast.classList.remove('hidden');
+      console.log('📡 系統切換至離線模式');
+    }
+  };
+
+  window.addEventListener('online', updateStatus);
+  window.addEventListener('offline', updateStatus);
+
+  if (!navigator.onLine) {
+    updateStatus();
+  }
 }
 
 async function loadVocabularyByPart(chapterPart) {

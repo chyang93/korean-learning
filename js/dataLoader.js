@@ -73,14 +73,23 @@ export async function loadGrammar() {
 }
 
 /** 🚀 2. 讀取發音庫 (11 課合併檔) **/
+//
+//
+/** 🚀 2. 讀取發音庫 (將 11 個章節攤平成所有獨立項目) **/
 export async function loadPronunciation() {
   try {
     const allData = await fetchJson('./data/grammar/all_pronunciations.json');
-    return Array.isArray(allData)
-      ? allData.map((item, index) => normalizeChapter(item, { id: `pronunciation-${index + 1}` }))
-      : [];
+    
+    if (Array.isArray(allData)) {
+      // 🟢 使用 .flat() 將「11 個陣列」組成的陣列，變成「一個包含所有項目」的扁平陣列
+      const flattenedItems = allData.flat();
+      
+      // 這樣你的發音庫就會出現 100 多個獨立的發音卡片了
+      return flattenedItems.map(item => normalizeChapter(item, { id: 'all_pronunciations' }));
+    }
+    return [];
   } catch (e) {
-    console.error("讀取合併發音檔失敗:", e);
+    console.error("發音庫讀取異常:", e);
     return [];
   }
 }
