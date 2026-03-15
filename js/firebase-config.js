@@ -7,12 +7,13 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  deleteDoc
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  deleteDoc // 1. 這裡要 import
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBz8pd1IRiU09U-XAm2VEMc1IKuExRh-Ek",
@@ -32,4 +33,4 @@ export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
 // 匯出登入/登出與 Firestore 操作函式
-export { signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc, deleteDoc };
+export { db, collection, addDoc, getDocs,signInWithPopup, onAuthStateChanged, signOut, doc, setDoc, getDoc, deleteDoc };
