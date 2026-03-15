@@ -1,7 +1,7 @@
 // sw.js
 
 // 1. 提升版本號：確保瀏覽器偵測到 sw.js 變動並重新下載資源
-const CACHE_NAME = 'korean-app-v22'; 
+const CACHE_NAME = 'korean-app-v23'; 
 
 // 2. 生成 118 課文法 JSON 路徑
 const GRAMMAR_JSONS = Array.from(

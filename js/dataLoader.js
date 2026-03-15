@@ -1,3 +1,4 @@
+/** 🔴 錯誤定義與共用工具 **/
 const ERROR_CODES = {
   manifestLoad: 'ERROR_MANIFEST_LOAD',
   chapterLoad: 'ERROR_CHAPTER_LOAD',
@@ -5,7 +6,6 @@ const ERROR_CODES = {
   missingField: 'WARN_MISSING_FIELD'
 };
 
-/** 🟢 基礎抓取工具 **/
 async function fetchJson(path) {
   const response = await fetch(path, { cache: 'no-store' });
   if (!response.ok) {
@@ -23,8 +23,9 @@ function fieldOrWarn(value, fallback, path, warnings) {
   return value;
 }
 
-/** 🔵 資料正規化：整合後的唯一版本 **/
+/** 🔵 資料正規化：【整合後唯一版本】 **/
 function normalizeChapter(rawData, chapterInfo = null) {
+  // 支援 JSON 包裹陣列或單一物件的情況
   const data = Array.isArray(rawData) ? rawData[0] : rawData;
   if (!data || typeof data !== 'object') return null;
 
@@ -32,7 +33,7 @@ function normalizeChapter(rawData, chapterInfo = null) {
   const introDialogueRaw = data.introDialogue || {};
   const grammarRuleRaw = data.grammarRule || {};
   
-  // 💡 判斷是否為發音檔，如果是，則不發出對話欄位缺失的警告
+  // 💡 判斷是否為發音檔，如果是，則不對對話欄位發出缺失警告
   const isPronunciation = chapterInfo?.id?.includes('pronunciation');
 
   const normalized = {
@@ -58,7 +59,7 @@ function normalizeChapter(rawData, chapterInfo = null) {
   return normalized;
 }
 
-/** 🚀 1. 讀取文法庫 **/
+/** 🚀 1. 讀取文法庫 (1 ~ 118 課合併檔) **/
 export async function loadGrammar() {
   try {
     const allData = await fetchJson('./data/grammar/all_chapters.json');
@@ -71,7 +72,7 @@ export async function loadGrammar() {
   }
 }
 
-/** 🚀 2. 讀取發音庫 **/
+/** 🚀 2. 讀取發音庫 (11 課合併檔) **/
 export async function loadPronunciation() {
   try {
     const allData = await fetchJson('./data/grammar/all_pronunciations.json');
@@ -84,10 +85,11 @@ export async function loadPronunciation() {
   }
 }
 
-/** 🚀 3. 讀取單字庫 **/
+/** 🚀 3. 讀取單字庫 (30 課合併檔) **/
 export async function loadVocabulary() {
   try {
-    const allVocab = await fetchJson('./data/vocabulary/all_vocabularies.json'); // 修正變數名稱
+    const allVocab = await fetchJson('./data/vocabulary/all_vocabularies.json');
+    // 修正原本代碼中的 allData 變數錯誤
     return Array.isArray(allVocab) ? allVocab : [];
   } catch (e) {
     console.error("讀取合併單字檔失敗:", e);
