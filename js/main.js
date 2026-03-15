@@ -487,10 +487,15 @@ async function init() {
   document.body.classList.toggle('liaison-contrast-active', settings.liaisonContrast === true);
 
   // 智慧模式判定
-  const lastId = state.progress.lastLearnedPronunciationId || state.progress.lastLearnedGrammarId;
-  if (lastId !== null) {
-    const nid = Number(lastId);
-    uiState.learningMode = (nid < 0 || nid >= 113) ? 'pronunciation' : 'grammar';
+  const progress = state.progress;
+  // 🟢 優先使用 master 指標 currentLinearId，若無則判斷發音課 ID 是否存在且未結業
+  const linearId = progress.currentLinearId !== undefined ? Number(progress.currentLinearId) : null;
+
+  if (linearId !== null) {
+    uiState.learningMode = (linearId < 0) ? 'pronunciation' : 'grammar';
+  } else {
+    // 備援：若無 master 指標，則看發音課進度
+    uiState.learningMode = (progress.lastLearnedPronunciationId < 0) ? 'pronunciation' : 'grammar';
   }
 
   applyTheme(settings.theme || 'dark');
@@ -686,6 +691,8 @@ function bindSettingsDialog() {
           setLastLearnedGrammarId(targetId);
           uiState.learningMode = 'grammar';
         }
+        // 🟢 關鍵：清空查看 ID，強迫 renderStartView 讀取剛存進去的 LastLearnedId
+        uiState.viewingId = null;
         void triggerCloudSave();
         setLevelAssessed();
         showInfo(`✅ 線性紀錄已成功跳轉至章節 ID: ${targetId}`);
@@ -844,7 +851,9 @@ function renderHomeState() {
       } else {
         uiState.viewingId = null;
         const linearId = latestState.progress.currentLinearId !== undefined ? Number(latestState.progress.currentLinearId) : -200;
-        uiState.learningMode = (linearId < 0 || linearId >= 113) ? 'pronunciation' : 'grammar';
+        
+        // 🟢 修正：不再使用 >= 113，直接以正負號區分
+        uiState.learningMode = (linearId < 0) ? 'pronunciation' : 'grammar';
         if (latestState.mode !== 'linear') {
           setMode('linear');
         }
