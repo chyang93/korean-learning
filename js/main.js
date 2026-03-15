@@ -1084,6 +1084,7 @@ function bindPronunciationEvents(container) {
     btn.addEventListener('click', () => {
       const targetId = Number(btn.dataset.id);
       const state = getState();
+      const currentMax = Number(state.progress.lastLearnedPronunciationId || -200);
 
       if (!state.progress.levelAssessed) {
         shouldJumpAfterAssessment = false;
@@ -1091,9 +1092,13 @@ function bindPronunciationEvents(container) {
       }
 
       if (state.mode === 'linear') {
-        setLastLearnedPronunciationId(targetId);
-        void triggerCloudSave();
-        uiState.viewingId = null;
+        if (targetId > currentMax) {
+          setLastLearnedPronunciationId(targetId);
+          void triggerCloudSave();
+          uiState.viewingId = null;
+        } else {
+          uiState.viewingId = targetId;
+        }
       } else {
         uiState.viewingId = targetId;
       }
@@ -1113,7 +1118,7 @@ function renderStartView() {
   const state = getState();
   const isPron = uiState.learningMode === 'pronunciation';
   const sourceData = isPron ? pronunciationData : grammarData;
-  const currentId = (state.mode === 'free' && uiState.viewingId !== null)
+  const currentId = (uiState.viewingId !== null)
     ? uiState.viewingId
     : (isPron ? (state.progress.lastLearnedPronunciationId || -200) : (state.progress.lastLearnedGrammarId || 1));
   
@@ -1613,39 +1618,31 @@ function renderStartView() {
 // 尋找此段監聽器
 container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
   const latestState = getState();
-  const cid = Number(currentId);
+  const nextId = nextGrammar ? Number(nextGrammar.id) : null;
 
-  if (isPron && cid === -119) {
-    // 🟢 核心修改：發音課最後一關 (-119) 點擊後跳轉
-    setLastLearnedGrammarId(1);
-    void triggerCloudSave();
-    uiState.viewingId = null;
-    uiState.learningMode = 'grammar';
-    renderStartView();
-    showInfo('🎉 恭喜發音課結業！正在進入文法庫 ID:001');
-  } else if (!isPron && cid === 115) {
-    window.location.hash = '';
-  } else if (nextGrammar) {
+  if (nextId !== null) {
     if (latestState.mode === 'linear') {
-      const nextId = Number(nextGrammar.id);
-
-      // 🟢 核心修正：加入 if 判斷，確保進度只增不減
       if (isPron) {
-        const currentSaved = Number(latestState.progress.lastLearnedPronunciationId || -200);
-        if (nextId > currentSaved) {
+        const currentMax = Number(latestState.progress.lastLearnedPronunciationId || -200);
+        if (nextId > currentMax) {
           setLastLearnedPronunciationId(nextId);
           void triggerCloudSave();
+          uiState.viewingId = null;
+        } else {
+          uiState.viewingId = nextId;
         }
       } else {
-        const currentSaved = Number(latestState.progress.lastLearnedGrammarId || 1);
-        if (nextId > currentSaved) {
+        const currentMax = Number(latestState.progress.lastLearnedGrammarId || 1);
+        if (nextId > currentMax) {
           setLastLearnedGrammarId(nextId);
           void triggerCloudSave();
+          uiState.viewingId = null;
+        } else {
+          uiState.viewingId = nextId;
         }
       }
-      uiState.viewingId = null;
     } else {
-      uiState.viewingId = nextGrammar.id;
+      uiState.viewingId = nextId;
     }
     renderStartView();
   } else {
@@ -2318,6 +2315,7 @@ function renderGrammarView() {
     btn.addEventListener('click', () => {
       const targetId = Number(btn.dataset.id);
       const state = getState();
+      const currentMax = Number(state.progress.lastLearnedGrammarId || 1);
 
       if (!state.progress.levelAssessed) {
         shouldJumpAfterAssessment = false;
@@ -2325,9 +2323,13 @@ function renderGrammarView() {
       }
 
       if (state.mode === 'linear') {
-        setLastLearnedGrammarId(targetId);
-        void triggerCloudSave();
-        uiState.viewingId = null;
+        if (targetId > currentMax) {
+          setLastLearnedGrammarId(targetId);
+          void triggerCloudSave();
+          uiState.viewingId = null;
+        } else {
+          uiState.viewingId = targetId;
+        }
       } else {
         uiState.viewingId = targetId;
       }
