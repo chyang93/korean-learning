@@ -1093,7 +1093,8 @@ function bindPronunciationEvents(container) {
     btn.addEventListener('click', () => {
       const targetId = Number(btn.dataset.id);
       const state = getState();
-      const currentMax = Number(state.progress.lastLearnedPronunciationId || -200);
+      // 🟢 核心修正：改拿「全域進度」來比較
+      const currentGlobalMax = Number(state.progress.currentLinearId ?? -200);
 
       if (!state.progress.levelAssessed) {
         shouldJumpAfterAssessment = false;
@@ -1101,7 +1102,8 @@ function bindPronunciationEvents(container) {
       }
 
       if (state.mode === 'linear') {
-        if (targetId > currentMax) {
+        // 只有當目標 ID 真的比「目前所有模式中最高的進度」還大時，才更新
+        if (targetId > currentGlobalMax) {
           setLastLearnedPronunciationId(targetId);
           void triggerCloudSave();
           uiState.viewingId = null;
@@ -1501,34 +1503,32 @@ function renderStartView() {
       await safeWait(700, runId);
       await safeSpeak('本章節完成。', runId);
 
-const latestState = getState(); // 🟢 取得最新狀態
-    const currentChapterId = Number(currentGrammar.id);
+    const latestState = getState();
+    const currentChapterIdNum = Number(currentGrammar.id);
+    // 🟢 統一使用全域指標判定
+    const currentGlobalMax = Number(latestState.progress.currentLinearId ?? -200);
 
-    if (isPron) {
-      // 🟢 只有當前章節 ID 大於最高紀錄時，才更新線性進度
-      const maxPron = Number(latestState.progress.lastLearnedPronunciationId || -200);
-      if (currentChapterId > maxPron) {
-        setLastLearnedPronunciationId(currentChapterId); //
+    if (currentChapterIdNum > currentGlobalMax) {
+      if (isPron) {
+        setLastLearnedPronunciationId(currentChapterIdNum);
+      } else {
+        setLastLearnedGrammarId(currentChapterIdNum);
       }
-      
+    }
+    // 不論是否更新線性紀錄，該課的「已學過」標籤都要打勾
+    if (isPron) {
       updatePronunciationChapterProgress(currentGrammar.id, { chapterCompleted: true });
       if (!latestState.progress.learnedPronunciation.includes(currentGrammar.id)) {
         toggleLearnedPronunciation(currentGrammar.id);
       }
     } else {
-      // 🟢 只有當前章節 ID 大於最高紀錄時，才更新線性進度
-      const maxGrammar = Number(latestState.progress.lastLearnedGrammarId || 1);
-      if (currentChapterId > maxGrammar) {
-        setLastLearnedGrammarId(currentChapterId); //
-      }
-
       updateChapterProgress(currentGrammar.id, { chapterCompleted: true });
       if (!latestState.progress.learnedGrammar.includes(currentGrammar.id)) {
         toggleLearnedGrammar(currentGrammar.id);
       }
     }
 
-    void triggerCloudSave(); // 🟢 確保同步的是正確的最高進度
+    void triggerCloudSave();
     btnPlay.textContent = '🔄 重新播放';
   } catch (e) {
     if (e !== 'ABORT') console.error(e);
@@ -2344,7 +2344,8 @@ function renderGrammarView() {
     btn.addEventListener('click', () => {
       const targetId = Number(btn.dataset.id);
       const state = getState();
-      const currentMax = Number(state.progress.lastLearnedGrammarId || 1);
+      // 🟢 核心修正：改拿「全域進度」來比較
+      const currentGlobalMax = Number(state.progress.currentLinearId ?? -200);
 
       if (!state.progress.levelAssessed) {
         shouldJumpAfterAssessment = false;
@@ -2352,7 +2353,7 @@ function renderGrammarView() {
       }
 
       if (state.mode === 'linear') {
-        if (targetId > currentMax) {
+        if (targetId > currentGlobalMax) {
           setLastLearnedGrammarId(targetId);
           void triggerCloudSave();
           uiState.viewingId = null;
