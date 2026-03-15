@@ -46,11 +46,55 @@ import {
   signOut,
   doc,
   setDoc,
+  deleteDoc,
   getDoc
 } from './firebase-config.js';
+import { OfflineQuizEngine } from './quizEngine.js';
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('./sw.js')
+      .then((reg) => {
+        console.log('✅ PWA 服務啟動成功！', reg);
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) {
+            return;
+          }
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateNotification();
+            }
+          });
+        });
+      })
+      .catch((err) => console.log('❌ PWA 註冊失敗', err));
+  });
+}
+
+function showUpdateNotification() {
+  if (document.getElementById('sw-update-note')) {
+    return;
+  }
+
+  const note = document.createElement('div');
+  note.id = 'sw-update-note';
+  note.innerHTML = `
+    <div style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+                background:#00ffc8; color:#000; padding:12px 24px; border-radius:30px;
+                box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:9999; font-weight:bold; cursor:pointer;">
+      ✨ 發現新版本！點擊更新內容
+    </div>
+  `;
+  note.onclick = () => window.location.reload();
+  document.body.appendChild(note);
+}
 
 let globalAbortSignal = 0;
 let shouldJumpAfterAssessment = false;
+const OFFLINE_RESULTS_KEY = 'offline_test_results';
 
 const routes = ['start', 'vocabulary', 'pronunciation', 'vocab-test', 'grammar', 'irregular', 'chat'];
 const MENU_VIEW_ROUTE_MAP = {
@@ -377,6 +421,8 @@ const audioController = {
 };
 
 async function init() {
+  initNetworkStatusBadge();
+
   // 🟢 核心修正：全域監聽，只要有任何點擊就嘗試啟動語音環境
   document.addEventListener('click', () => {
     enableAudioByUserAction();
@@ -570,23 +616,41 @@ function bindSettingsDialog() {
     document.body.classList.toggle('liaison-contrast-active', e.target.checked);
   });
 
-  // 2. 防呆復原：若是點擊「關閉」或按 Esc，恢復到原本儲存的狀態
+  // 2. 防呆復原
   dialog?.addEventListener('close', () => {
     const s = getState().settings;
     document.body.classList.toggle('liaison-hints-enabled', s.showPronunciationHints !== false);
     document.body.classList.toggle('liaison-contrast-active', s.liaisonContrast === true);
   });
 
+  // 🟢 修正重點：處理清除記憶 (包含雲端)
   if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      if (confirm('⚠️ 警告：確定要清除所有記憶嗎？\n\n此動作將刪除您所有的學習進度、標記與歷史紀錄，且無法復原！確認後學習將從零開始。')) {
+    clearBtn.addEventListener('click', async () => { // 這裡要加 async
+      if (confirm('⚠️ 警告：確定要清除所有記憶嗎？\n\n此動作將同時刪除「本地」與「雲端 Firebase」的所有進度，且無法復原！')) {
+        
+        // 🟢 執行雲端刪除邏輯
+        const user = auth.currentUser;
+        if (user) {
+          try {
+            // 指向該使用者的文件並刪除
+            await deleteDoc(doc(db, 'users', user.uid));
+            console.log("☁️ 雲端備份已成功移除");
+          } catch (error) {
+            console.error("雲端刪除失敗:", error);
+            alert("雲端資料刪除失敗，請檢查網路連線。");
+            return; // 雲端刪除失敗則不繼續執行本地刪除，避免同步錯誤
+          }
+        }
+
+        // 執行本地清除
         clearAllData();
         localStorage.removeItem('korean_showPronunciationHints');
         localStorage.removeItem('korean_liaisonContrast');
         localStorage.removeItem('korean_autoPlayCorrect');
         localStorage.removeItem('korean_speakDialogueSpeaker');
         localStorage.removeItem('korean_syncTestVocabBookmark');
-        alert('記憶已徹底清除，系統將重新載入。');
+
+        alert('記憶已徹底清除（含雲端），系統將重新載入。');
         window.location.hash = '';
         window.location.reload();
       }
@@ -595,7 +659,7 @@ function bindSettingsDialog() {
 
   if (!saveBtn) return;
 
-  // 3. 儲存設定
+  // 3. 儲存設定 (維持原樣)
   saveBtn.addEventListener('click', () => {
     const showPronunciationHints = hintCheckbox.checked;
     const liaisonContrast = contrastCheckbox.checked;
@@ -612,7 +676,7 @@ function bindSettingsDialog() {
       const targetId = Number(jumpSelect.value);
       const latestState = getState();
       if (Number.isFinite(targetId) && targetId !== Number(latestState.progress.currentLinearId)) {
-        if (targetId < 0 || targetId >= 113) {
+        if (targetId < 0) {
           setLastLearnedPronunciationId(targetId);
           uiState.learningMode = 'pronunciation';
         } else {
@@ -631,7 +695,6 @@ function bindSettingsDialog() {
     localStorage.setItem('korean_speakDialogueSpeaker', String(speakDialogueSpeaker));
     localStorage.setItem('korean_syncTestVocabBookmark', String(syncTestVocabBookmark));
 
-    // 確定 Class 狀態正確
     document.body.classList.toggle('liaison-hints-enabled', showPronunciationHints);
     document.body.classList.toggle('liaison-contrast-active', liaisonContrast);
 
@@ -651,32 +714,35 @@ function bindLevelAssessmentDialog() {
       const level = btn.dataset.level;
       let targetId = -200;
 
-      // 依照您的需求指定初始 ID
-      if (level === '0') targetId = -200;
-      else if (level === '1') targetId = -149;
-      else if (level === '2') targetId = -132;
-      else if (level === '3') targetId = -118;
+      // 1. 依照新版 ID 體系指定初始點
+      if (level === '0') targetId = -200;      // 🌱 0基礎 (發音)
+      else if (level === '1') targetId = -149; // ⭐ 已會40音 (發音)
+      else if (level === '2') targetId = -132; // 🌟 已會音變 (發音)
+      else if (level === '3') targetId = 1;    // 📘 開始學文法 (文法第一課)
 
-      // 1. 紀錄評測已完成
+      // 紀錄評測已完成
       if (typeof setLevelAssessed === 'function') setLevelAssessed();
 
-      // 2. 紀錄「未來的」起始點 (但不一定現在就要跳過去)
-      if (targetId < 0 || targetId >= 113) {
+      // 2. 核心邏輯簡化：以 0 為分水嶺
+      if (targetId < 0) {
+        // 負數 ID 一律儲存在發音進度中
         setLastLearnedPronunciationId(targetId);
       } else {
+        // 正數 ID 一律儲存在文法進度中
         setLastLearnedGrammarId(targetId);
       }
-      void triggerCloudSave();
-
+      
+      void triggerCloudSave(); // 同步至 Firebase
       dialog.close();
 
-      // 3. 核心修正：判斷是否要立即跳轉
+      // 3. 判斷跳轉模式：同樣以 0 為分水嶺
       if (shouldJumpAfterAssessment) {
-        uiState.learningMode = (targetId < 0 || targetId >= 113) ? 'pronunciation' : 'grammar';
+        // 修正：不再需要判斷是否 >= 113，直接看正負號即可
+        uiState.learningMode = (targetId < 0) ? 'pronunciation' : 'grammar';
+        
         window.location.hash = '#start';
         if (window.location.hash === '#start') renderRoute('start');
       } else {
-        // 如果是從文法庫/發音庫進入，則不跳轉，讓使用者留在原本想看的頁面
         showInfo('程度已紀錄，下次按「開始學習」將從建議章節開始。');
       }
 
@@ -684,7 +750,6 @@ function bindLevelAssessmentDialog() {
     });
   });
 }
-
 
 function refreshCurrentRoute() {
   const route = resolveRouteFromHash();
@@ -1978,6 +2043,9 @@ function moveToNextVocabQuestion() {
       }))
     };
     addTestRecord(record);
+    void handleTestResult(record).catch((error) => {
+      console.error('處理測驗結果同步失敗:', error);
+    });
     session.historySaved = true;
   }
 }
@@ -3051,6 +3119,21 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
   }
 };
 
+const IS_DEBUG_MODE = false; // 🟢 上線前改為 false
+
+function updateDebugBadge(id) {
+    const badge = document.getElementById('debug-badge');
+    if (!badge) return;
+    
+    // 只有在 debug 模式下才顯示內容，否則隱藏
+    if (IS_DEBUG_MODE) {
+        badge.style.display = 'block';
+        badge.innerText = `ID: ${id}`;
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
 function renderError(message) {
   const app = document.querySelector('main');
   app.innerHTML = `<div class="card"><h2>錯誤</h2><p>${message}</p></div>`;
@@ -3062,5 +3145,139 @@ function showInfo(text) {
     target.textContent = text;
   }
 }
+
+function ensureOnlineStatusBadge() {
+  let badge = document.getElementById('online-status-badge');
+  if (badge) {
+    return badge;
+  }
+
+  badge = document.createElement('div');
+  badge.id = 'online-status-badge';
+  badge.className = 'online-status';
+  badge.textContent = '🛰️ 離線模式：使用快取資料';
+  document.body.appendChild(badge);
+  return badge;
+}
+
+function updateOfflineVisualState() {
+  ensureOnlineStatusBadge();
+  document.body.classList.toggle('is-offline', !navigator.onLine);
+}
+
+async function uploadToFirebase() {
+  await triggerCloudSave();
+}
+
+function saveResultToLocalStorage(result) {
+  const pending = JSON.parse(localStorage.getItem(OFFLINE_RESULTS_KEY) || '[]');
+  pending.push(result);
+  localStorage.setItem(OFFLINE_RESULTS_KEY, JSON.stringify(pending));
+}
+
+async function handleTestResult(resultData) {
+  if (navigator.onLine) {
+    await uploadToFirebase(resultData);
+    showInfo('✅ 測試結果已同步至雲端');
+  } else {
+    saveResultToLocalStorage({ ...resultData, timestamp: Date.now() });
+    showInfo('🛰️ 目前處於離線狀態，結果已儲存在本地，上線後將自動同步。');
+  }
+}
+
+async function flushOfflineResults() {
+  const offlineResults = JSON.parse(localStorage.getItem(OFFLINE_RESULTS_KEY) || '[]');
+  if (!offlineResults.length) {
+    return;
+  }
+
+  console.log('🔄 偵測到網路回復，正在同步離線測試資料...');
+  for (const record of offlineResults) {
+    await uploadToFirebase(record);
+  }
+
+  localStorage.removeItem(OFFLINE_RESULTS_KEY);
+  showInfo('✅ 離線測試資料已完成同步');
+}
+
+function initNetworkStatusBadge() {
+  updateOfflineVisualState();
+
+  window.addEventListener('online', async () => {
+    updateOfflineVisualState();
+    await flushOfflineResults();
+  });
+
+  window.addEventListener('offline', () => {
+    updateOfflineVisualState();
+    showInfo('🛰️ 網路中斷，已切換至離線模式');
+  });
+}
+
+async function loadVocabularyByPart(chapterPart) {
+  const part = String(Number(chapterPart)).padStart(2, '0');
+  const response = await fetch(`./data/vocabulary/part-${part}.json`, { cache: 'force-cache' });
+  if (!response.ok) {
+    throw new Error(`無法載入 part-${part} 單字`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+}
+
+function renderQuizUI(question, onChoose) {
+  const container = document.getElementById('view-vocab-test');
+  if (!container) {
+    return;
+  }
+
+  if (!question) {
+    container.innerHTML = '<div class="card">可用題目不足，請先下載更多單字章節。</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="card">
+      <h2>離線單字測試</h2>
+      <p class="message">題目：${escapeHtml(question.question || '')}</p>
+      <div class="choice-grid">
+        ${question.options
+          .map((opt) => `<button class="btn secondary" data-offline-choice="${escapeAttr(opt)}">${escapeHtml(opt)}</button>`)
+          .join('')}
+      </div>
+    </div>
+  `;
+
+  container.querySelectorAll('[data-offline-choice]').forEach((btn) => {
+    btn.addEventListener('click', () => onChoose(btn.dataset.offlineChoice));
+  });
+}
+
+async function startOfflineTest(chapterPart) {
+  const vocabPartData = await loadVocabularyByPart(chapterPart);
+  const engine = new OfflineQuizEngine(vocabPartData);
+  const currentQuestion = engine.generateQuestion();
+
+  renderQuizUI(currentQuestion, async (userChoice) => {
+    if (!currentQuestion) {
+      return;
+    }
+
+    if (userChoice === currentQuestion.answer) {
+      showInfo('🎉 正確！');
+      engine.score += 10;
+    } else {
+      showInfo(`❌ 答錯了，正確答案是：${currentQuestion.answer}`);
+    }
+
+    saveResultToLocalStorage({
+      chapterId: chapterPart,
+      score: engine.score,
+      time: new Date().toISOString()
+    });
+  });
+}
+
+window.startOfflineTest = startOfflineTest;
 
 init();

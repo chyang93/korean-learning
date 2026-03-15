@@ -44,6 +44,24 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.online-status {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #00ffc8;
+  z-index: 1000;
+  display: none;
+}
+
+body.is-offline .online-status {
+  display: block;
+}
+
 /* 切換：淺色模式 (科研白) */
 body.light-mode {
   --bg-dark: #f0f4f8;

@@ -124,15 +124,34 @@ function normalizeChapterPayload(chapterData, chapterId, partNumber) {
   throw new Error(`${ERROR_CODES.chapterSchema}: ${chapterId} 不是合法格式`);
 }
 
-export async function loadGrammarManifest() {
-  try {
-    const manifest = await fetchJson('./data/grammar-manifest.json');
-    if (!manifest || !Array.isArray(manifest.chapters)) {
-      throw new Error('chapters 必須是陣列');
+// js/dataLoader.js
+
+// 1. 讀取文法：只讀取 part-01 到 part-118
+export async function loadGrammar() {
+  const grammarParts = [];
+  // 假設你現在有 118 課文法
+  for (let i = 1; i <= 118; i++) {
+    const filename = `part-${i.toString().padStart(2, '0')}.json`;
+    try {
+      const resp = await fetch(`./data/grammar/${filename}`);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      grammarParts.push(...data);
+    } catch (e) {
+      console.error(`無法載入 ${filename}`, e);
     }
-    return manifest;
-  } catch (error) {
-    throw new Error(`${ERROR_CODES.manifestLoad}: ${error.message}`);
+  }
+  return grammarParts;
+}
+
+// 2. 讀取發音：讀取專用的發音檔案
+export async function loadPronunciation() {
+  try {
+    const resp = await fetch(`./data/grammar/pronunciation_all.json`);
+    return await resp.json(); // 這邊就會讀到你剛才改名的負數 ID 資料
+  } catch (e) {
+    console.error("無法載入發音資料", e);
+    return [];
   }
 }
 
@@ -168,11 +187,11 @@ async function loadChapterRange(startPart, endPart) {
 }
 
 export async function loadGrammar() {
-  return loadChapterRange(1, 115);
+  return loadChapterRange(1, 118);
 }
 
 export async function loadPronunciation() {
-  return loadChapterRange(116, 128);
+  return loadChapterRange(119, 129);
 }
 
 export async function loadVocabulary() {
