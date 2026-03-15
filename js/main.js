@@ -1289,14 +1289,32 @@ function renderStartView() {
     if (!speakable) return;
 
     let chunks = [sourceText];
-    // 🟢 修正：僅針對「韓文文字」（包含音節與單獨字母）進行拆分
-    // 這樣數字與標點符號會留在中文區塊中，不會被單獨拆出來。
+    // 偵測是否混合韓文與中文
     if (/[\u4e00-\u9fa5]/.test(sourceText) && /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(sourceText)) {
       chunks = sourceText.split(/([가-힣ㄱ-ㅎㅏ-ㅣ]+)/g).filter((p) => p && p.trim() !== '');
     }
 
+    // 🟢 裝置偵測：判斷是否為行動裝置
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
     for (const chunk of chunks) {
+      const isChinese = /[\u4e00-\u9fa5]/.test(chunk);
+      const userSettings = getState().settings;
+
+      if (isChinese) {
+        // 🚀 中文語速：電腦 1.6x，行動裝置 1.2x
+        const chineseSpeed = isMobile ? 1.2 : 1.6;
+        setSpeed(chineseSpeed);
+      } else {
+        // 🇰🇷 韓文語速：恢復 UI 設定值
+        setSpeed(userSettings.audioSpeed || 1.0);
+      }
+
       await audioController.speak(chunk, { cancelFirst: false });
+
+      // 播放完畢後將全域語速撥回，維持 UI 一致性
+      setSpeed(userSettings.audioSpeed || 1.0);
+
       if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
     }
   };
@@ -1334,7 +1352,7 @@ function renderStartView() {
         const target = currentGrammar.title.match(/[가-힣ㅏ-ㅣㄱ-ㅎ]+/)?.[0];
         for (let i = 0; i < 5; i++) {
           await safeSpeak(target, runId);
-          await safeWait(1500, runId);
+          await safeWait(900, runId);
         }
         unlockNextButton();
         return;
@@ -1447,7 +1465,7 @@ function renderStartView() {
             await safeSpeak(line.replace(/^[AB][:：]\s*/, ''), runId);
 
             if (i < kL.length - 1) {
-              await safeWait(1000, runId);
+              await safeWait(900, runId);
             }
           }
         }

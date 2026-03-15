@@ -23,9 +23,8 @@ function fieldOrWarn(value, fallback, path, warnings) {
   return value;
 }
 
-/** 🔵 資料正規化：【整合後唯一版本】 **/
+/** 🔵 資料正規化：整合後的唯一版本 **/
 function normalizeChapter(rawData, chapterInfo = null) {
-  // 支援 JSON 包裹陣列或單一物件的情況
   const data = Array.isArray(rawData) ? rawData[0] : rawData;
   if (!data || typeof data !== 'object') return null;
 
@@ -33,30 +32,35 @@ function normalizeChapter(rawData, chapterInfo = null) {
   const introDialogueRaw = data.introDialogue || {};
   const grammarRuleRaw = data.grammarRule || {};
   
-  // 💡 判斷是否為發音檔，如果是，則不對對話欄位發出缺失警告
   const isPronunciation = chapterInfo?.id?.includes('pronunciation');
 
-  const normalized = {
+  return {
     id: data.id || 0,
     title: fieldOrWarn(data.title, '未命名章節', `${chapterInfo?.id}.title`, warnings),
     part: data.part !== undefined ? data.part : 0,
+    
+    // 1. 對話區塊
     introDialogue: {
       A: isPronunciation ? (introDialogueRaw.A || '') : fieldOrWarn(introDialogueRaw.A, '', `${chapterInfo?.id}.introDialogue.A`, warnings),
       A_zh: isPronunciation ? (introDialogueRaw.A_zh || '') : fieldOrWarn(introDialogueRaw.A_zh, '', `${chapterInfo?.id}.introDialogue.A_zh`, warnings),
       B: isPronunciation ? (introDialogueRaw.B || '') : fieldOrWarn(introDialogueRaw.B, '', `${chapterInfo?.id}.introDialogue.B`, warnings),
       B_zh: isPronunciation ? (introDialogueRaw.B_zh || '') : fieldOrWarn(introDialogueRaw.B_zh, '', `${chapterInfo?.id}.introDialogue.B_zh`, warnings)
     },
+
+    // 2. 文法規則 (補上逗號並整合詳細規則)
     grammarRule: {
       explanation: grammarRuleRaw.explanation || '',
       pattern: grammarRuleRaw.pattern || '',
-      note: grammarRuleRaw.note || ''
+      note: grammarRuleRaw.note || '', // 🟢 已補上逗號
+      detailedInstruction: Array.isArray(grammarRuleRaw.detailedInstruction) ? grammarRuleRaw.detailedInstruction : []
     },
-    examples: Array.isArray(data.examples) ? data.examples : [],
-    relatedVocabIds: Array.isArray(data.relatedVocabIds) ? data.relatedVocabIds : []
-  };
 
-  if (warnings.length) console.warn(...warnings);
-  return normalized;
+    // 3. 實戰練習與關聯 (頂層結構，符合 main.js 邏輯)
+    examples: Array.isArray(data.examples) ? data.examples : [],
+    relatedVocabIds: Array.isArray(data.relatedVocabIds) ? data.relatedVocabIds : [],
+    relatedGrammarIds: Array.isArray(data.relatedGrammarIds) ? data.relatedGrammarIds : [],
+    relatedPronunciationIds: Array.isArray(data.relatedPronunciationIds) ? data.relatedPronunciationIds : []
+  };
 }
 
 /** 🚀 1. 讀取文法庫 (1 ~ 118 課合併檔) **/
@@ -72,20 +76,17 @@ export async function loadGrammar() {
   }
 }
 
-/** 🚀 2. 讀取發音庫 (11 課合併檔) **/
-//
-//
 /** 🚀 2. 讀取發音庫 (將 11 個章節攤平成所有獨立項目) **/
 export async function loadPronunciation() {
   try {
     const allData = await fetchJson('./data/grammar/all_pronunciations.json');
     
     if (Array.isArray(allData)) {
-      // 🟢 使用 .flat() 將「11 個陣列」組成的陣列，變成「一個包含所有項目」的扁平陣列
+      // 🟢 專業寫法：使用 .flat() 攤平嵌套陣列
       const flattenedItems = allData.flat();
-      
-      // 這樣你的發音庫就會出現 100 多個獨立的發音卡片了
-      return flattenedItems.map(item => normalizeChapter(item, { id: 'all_pronunciations' }));
+      return flattenedItems.map((item, index) => 
+        normalizeChapter(item, { id: `pronunciation-${index + 1}` })
+      );
     }
     return [];
   } catch (e) {
@@ -98,7 +99,6 @@ export async function loadPronunciation() {
 export async function loadVocabulary() {
   try {
     const allVocab = await fetchJson('./data/vocabulary/all_vocabularies.json');
-    // 修正原本代碼中的 allData 變數錯誤
     return Array.isArray(allVocab) ? allVocab : [];
   } catch (e) {
     console.error("讀取合併單字檔失敗:", e);
