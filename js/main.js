@@ -168,11 +168,22 @@ function mergeProgressArrays(localProgress = {}, cloudProgress = {}) {
 }
 
 function mergeStateForConflict(localState = {}, cloudState = {}) {
-  return {
+  const merged = {
     ...cloudState,
     ...localState,
     progress: mergeProgressArrays(localState.progress || {}, cloudState.progress || {})
   };
+
+  // 合併測驗成績紀錄 (依 ID 去重)
+  const combinedHistory = [...(localState.testHistory || []), ...(cloudState.testHistory || [])];
+  merged.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values())
+    .sort((a, b) => b.id - a.id);
+
+  // 合併單字測驗標記 (依韓文單字去重)
+  const combinedVocabMarks = [...(localState.testBookmarksVocab || []), ...(cloudState.testBookmarksVocab || [])];
+  merged.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map(item => [String(item.ko).trim(), item])).values());
+
+  return merged;
 }
 
 function hasMeaningfulConflict(localState = {}, cloudState = {}) {
@@ -227,6 +238,7 @@ async function triggerCloudSave() {
 // 優化後的 handleProgressSync
 // 🟢 修改 2：跨裝置衝突判斷與詳細差異清單
 // 🟢 修改：跨裝置衝突判斷，加入「測驗成績數量」的比對
+// 🟢 修正：恢復詳細差異文字顯示
 async function handleProgressSync(user) {
   const userRef = doc(db, 'users', user.uid);
   const docSnap = await getDoc(userRef);
@@ -235,39 +247,43 @@ async function handleProgressSync(user) {
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
 
-    // 判斷資料是否不一致
     const isDataDifferent = (local, cloud) => {
       const p1 = local.progress || {};
       const p2 = cloud.progress || {};
-
       if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
-
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
-        if ((p1[key] || []).length !== (p2[key] || []).length) return true;
+        if ((p1[key] || []).length !== (cloud[key] || []).length) return true;
       }
-
       if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
       if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
-      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true;
-
       return false;
     };
 
     if (isDataDifferent(localState, cloudState)) {
       const autoSync = localState.settings?.autoSyncAcrossDevices;
-
       if (autoSync === true) {
-        // ✅ 勾選了：直接覆蓋本機，不再詢問
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
-        console.log('🔄 跨裝置自動同步：已載入雲端最新資料');
         refreshCurrentRoute();
         showInfo('✅ 已成功載入雲端最新資料');
         return;
       }
 
-      // 🛑 未勾選：跳出對話框詢問
-      const diffString = `• 本機與雲端紀錄有所不同`;
+      // 🔴 關鍵修正：組裝詳細差異文字
+      const pLocal = localState.progress || {};
+      const pCloud = cloudState.progress || {};
+      const diffText = [];
+      
+      if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) 
+        diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId} vs 雲端 ID ${pCloud.currentLinearId}`);
+      if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) 
+        diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} vs 雲端 ${pCloud.learnedVocab?.length || 0}`);
+      if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) 
+        diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} vs 雲端 ${pCloud.bookmarkedVocab?.length || 0}`);
+      if ((localState.testHistory?.length || 0) !== (cloudState.testHistory?.length || 0)) 
+        diffText.push(`• 成績紀錄：本機 ${localState.testHistory?.length || 0} 筆 vs 雲端 ${cloudState.testHistory?.length || 0} 筆`);
+
+      const diffString = diffText.length > 0 ? diffText.join('\n') : "• 標記或細部設定有所不同";
 
       const choice = window.confirm(
         `🔍 發現不同裝置的紀錄不一致！\n\n` +
@@ -277,12 +293,10 @@ async function handleProgressSync(user) {
       );
 
       if (choice) {
-        // 下載雲端並覆蓋
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
         refreshCurrentRoute();
         showInfo('✅ 已成功載入雲端進度');
       } else {
-        // 保留本機：執行智能合併並強制上傳，不再次詢問
         const merged = mergeStateForConflict(localState, cloudState);
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
         await setDoc(userRef, merged);
@@ -290,7 +304,6 @@ async function handleProgressSync(user) {
       }
     }
   } else {
-    // 雲端無資料，直接上傳初始化
     await setDoc(userRef, localState);
   }
 }
