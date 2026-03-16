@@ -1,7 +1,7 @@
 // sw.js
 
 // 1. 提升版本號至 v28 (確保瀏覽器重新抓取)
-const CACHE_NAME = 'korean-app-v63'; 
+const CACHE_NAME = 'korean-app-v64'; 
 
 const ASSETS_TO_CACHE = [
   './',

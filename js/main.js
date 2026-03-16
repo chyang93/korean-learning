@@ -208,27 +208,24 @@ function hasMeaningfulConflict(localState = {}, cloudState = {}) {
   return localSignals && cloudSignals;
 }
 
+// 🟢 修改 1：安靜的背景自動同步
 async function triggerCloudSave() {
   const user = auth.currentUser;
-  if (!user) {
-    return;
-  }
+  if (!user) return;
 
   const localState = getState();
-  if (!localState) {
-    return;
-  }
+  if (!localState) return;
 
   try {
     await setDoc(doc(db, 'users', user.uid), localState);
-    console.log('☁️ 進度已即時備份至雲端');
+    console.log('☁️ 進度已在背景自動備份至雲端');
   } catch (error) {
-    console.error('同步雲端失敗:', error);
-    showInfo('⚠️ 雲端同步失敗，請稍後再試');
+    console.error('背景同步失敗:', error);
   }
 }
 
 // 優化後的 handleProgressSync
+// 🟢 修改 2：跨裝置衝突判斷與詳細差異清單
 async function handleProgressSync(user) {
   const userRef = doc(db, 'users', user.uid);
   const docSnap = await getDoc(userRef);
@@ -237,58 +234,73 @@ async function handleProgressSync(user) {
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
 
-    // 🟢 嚴格比對進度與標記內容，避免陣列順序造成誤判
+    // 比對陣列是否不同的工具
     const isProgressDifferent = (p1, p2) => {
-      if (Number(p1?.currentLinearId || -200) !== Number(p2?.currentLinearId || -200)) {
-        return true;
-      }
-
+      if (Number(p1?.currentLinearId || -200) !== Number(p2?.currentLinearId || -200)) return true;
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
-        const arr1 = [...(p1?.[key] || [])].map((value) => String(value)).sort();
-        const arr2 = [...(p2?.[key] || [])].map((value) => String(value)).sort();
-        if (arr1.length !== arr2.length) {
-          return true;
-        }
+        const arr1 = [...(p1?.[key] || [])].map(String).sort();
+        const arr2 = [...(p2?.[key] || [])].map(String).sort();
+        if (arr1.length !== arr2.length) return true;
         for (let index = 0; index < arr1.length; index += 1) {
-          if (arr1[index] !== arr2[index]) {
-            return true;
-          }
+          if (arr1[index] !== arr2[index]) return true;
         }
       }
       return false;
     };
 
-    const isDifferent = isProgressDifferent(localState.progress || {}, cloudState.progress || {});
+    if (isProgressDifferent(localState.progress || {}, cloudState.progress || {})) {
+      const autoSync = localState.settings?.autoSyncAcrossDevices;
 
-    if (isDifferent) {
-      const localId = localState.progress.currentLinearId || -200;
-      const cloudId = cloudState.progress.currentLinearId || -200;
+      if (autoSync) {
+        // 若開啟自動同步：直接覆蓋本機 (無縫接軌)
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
+        console.log('🔄 已開啟跨裝置自動同步，載入雲端最新進度');
+        refreshCurrentRoute();
+        return;
+      }
 
-      // 🚀 彈出更具體的詢問視窗
+      // 🛑 若未開啟自動同步：整理並列出差異點
+      const pLocal = localState.progress || {};
+      const pCloud = cloudState.progress || {};
+      
+      const diffText = [];
+      if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) {
+        diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId || -200} vs 雲端 ID ${pCloud.currentLinearId || -200}`);
+      }
+      if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) {
+        diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} 個 vs 雲端 ${pCloud.learnedVocab?.length || 0} 個`);
+      }
+      if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) {
+        diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} 個 vs 雲端 ${pCloud.bookmarkedVocab?.length || 0} 個`);
+      }
+      if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) {
+        diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} 個 vs 雲端 ${pCloud.learnedGrammar?.length || 0} 個`);
+      }
+      if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) {
+        diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} 個 vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0} 個`);
+      }
+      
+      let diffString = diffText.length > 0 ? diffText.join('\n') : '• 其他學習狀態或細微標記不同';
+
       const choice = window.confirm(
-        `🔍 發現雲端存檔與本地進度不一致：\n\n` +
-        `☁️ 雲端進度：ID ${cloudId}\n` +
-        `📱 本地進度：ID ${localId}\n\n` +
-        `按「確定」：使用雲端資料覆蓋本地（推薦）\n` +
-        `按「取消」：保留目前本地進度，並更新至雲端`
+        `🔍 發現不同裝置的紀錄不一致！\n\n` +
+        `【具體差異】\n${diffString}\n\n` +
+        `按「確定」：下載並使用【雲端紀錄】\n` +
+        `按「取消」：保留【本機紀錄】（會將本機紀錄上傳並覆蓋雲端）`
       );
 
       if (choice) {
-        // 使用者選擇雲端覆蓋本地
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
         showInfo('✅ 已成功載入雲端進度');
         refreshCurrentRoute();
-        return;
       } else {
-        // 使用者選擇保留本地，並強制更新至雲端備份
         await setDoc(userRef, localState);
-        showInfo('🚀 已將本地最新進度同步至雲端');
-        return;
+        showInfo('🚀 已保留本機紀錄，並同步覆蓋雲端');
       }
     }
   } else {
-    // 雲端完全沒資料，直接上傳
+    // 雲端完全沒資料，直接上傳初始化
     await setDoc(userRef, localState);
     console.log('🚀 偵測到新使用者，已初始化雲端存檔');
   }
@@ -517,6 +529,10 @@ async function init() {
   if (storedSyncBookmark !== null) {
     patchSettings({ syncTestVocabBookmark: storedSyncBookmark === 'true' });
   }
+  const storedAutoSync = localStorage.getItem('korean_autoSyncAcrossDevices');
+  if (storedAutoSync !== null) {
+    patchSettings({ autoSyncAcrossDevices: storedAutoSync === 'true' });
+  }
 
   const settings = getState().settings;
   document.body.classList.toggle('liaison-hints-enabled', settings.showPronunciationHints !== false);
@@ -712,8 +728,13 @@ function bindSettingsDialog() {
     const syncTestVocabBookmark = document.getElementById('syncTestVocabBookmark')?.checked || false;
     const toggleShowProgress = document.getElementById('toggleShowProgress');
     const showProgressOnHome = toggleShowProgress ? toggleShowProgress.checked : true;
+    
+    // 🟢 1. 抓取新的「跨裝置自動同步」開關狀態
+    const autoSyncEl = document.getElementById('autoSyncAcrossDevices');
+    const autoSyncAcrossDevices = autoSyncEl ? autoSyncEl.checked : false;
 
-    patchSettings({ showPronunciationHints, liaisonContrast, autoPlayCorrect, speakDialogueSpeaker, showProgressOnHome, syncTestVocabBookmark });
+    // 🟢 2. 將 autoSyncAcrossDevices 加入設定更新
+    patchSettings({ showPronunciationHints, liaisonContrast, autoPlayCorrect, speakDialogueSpeaker, showProgressOnHome, syncTestVocabBookmark, autoSyncAcrossDevices });
 
     const jumpSelect = document.getElementById('jumpLevelSelect');
     if (jumpSelect && jumpSelect.value !== 'none') {
@@ -727,9 +748,8 @@ function bindSettingsDialog() {
           setLastLearnedGrammarId(targetId);
           uiState.learningMode = 'grammar';
         }
-        // 🟢 關鍵：清空查看 ID，強迫 renderStartView 讀取剛存進去的 LastLearnedId
+        // 關鍵：清空查看 ID，強迫 renderStartView 讀取剛存進去的 LastLearnedId
         uiState.viewingId = null;
-        void triggerCloudSave();
         setLevelAssessed();
         showInfo(`✅ 線性紀錄已成功跳轉至章節 ID: ${targetId}`);
       }
@@ -740,6 +760,8 @@ function bindSettingsDialog() {
     localStorage.setItem('korean_autoPlayCorrect', String(autoPlayCorrect));
     localStorage.setItem('korean_speakDialogueSpeaker', String(speakDialogueSpeaker));
     localStorage.setItem('korean_syncTestVocabBookmark', String(syncTestVocabBookmark));
+    // 🟢 3. 儲存跨裝置同步設定到本地
+    localStorage.setItem('korean_autoSyncAcrossDevices', String(autoSyncAcrossDevices));
 
     document.body.classList.toggle('liaison-hints-enabled', showPronunciationHints);
     document.body.classList.toggle('liaison-contrast-active', liaisonContrast);
@@ -747,6 +769,10 @@ function bindSettingsDialog() {
     if (dialog && typeof dialog.close === 'function') {
       dialog.close();
     }
+    
+    // 🟢 4. 觸發一次背景靜默上傳，確保最新的設定與進度同步到雲端
+    void triggerCloudSave();
+
     refreshCurrentRoute(); 
   });
 }
@@ -2238,7 +2264,7 @@ function renderTestHistoryList() {
     <div class="history-card">
       <div class="history-header" onclick="this.parentElement.classList.toggle('expanded')">
         <div class="history-info">
-          <div class="history-title">📖 ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
+          <div class="history-title"> ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
           <div class="history-meta">📅 ${escapeHtml(record.time || '')}</div>
         </div>
         <div class="history-score">${Number(record.score) || 0} / ${Number(record.total) || 0}</div>
@@ -2510,6 +2536,7 @@ function renderGrammarItem(item, learned, bookmarked, state) {
   `;
 }
 
+// 🟢 修改 3：設定介面增加開關 + 縮小開發者按鈕
 function ensureAdvancedSettingsControls() {
   const form = document.querySelector('#settingsDialog form');
   if (!form || form.querySelector('#advancedSettingsBlock')) return;
@@ -2521,6 +2548,11 @@ function ensureAdvancedSettingsControls() {
       <input id="toggleShowProgress" type="checkbox" />
       主頁顯示目前進度
     </label>
+    
+    <label class="checkbox-row">
+      <input id="autoSyncAcrossDevices" type="checkbox" />
+      跨裝置自動同步 (開啟時，若雲端有新紀錄將直接覆蓋本機，不再詢問)
+    </label>
 
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
       <label for="jumpLevelSelect" style="color: var(--danger); font-weight: bold;">🚀 跳級選項 (強制修改線性紀錄)</label>
@@ -2530,12 +2562,11 @@ function ensureAdvancedSettingsControls() {
       </p>
     </div>
 
-    <div style="margin-top: 20px; border-top: 2px solid var(--danger); padding-top: 15px;">
-      <label style="color: var(--danger); font-weight: bold; display: block; margin-bottom: 8px;">🛠️ 開發者專區</label>
-      <button type="button" class="btn secondary" style="width: 100%; border-color: var(--danger); color: var(--danger);" onclick="window.forceAppUpdate()">
+    <div style="margin-top: 15px; border-top: 1px dashed var(--danger); padding-top: 15px; display: flex; align-items: center; justify-content: space-between;">
+      <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;">🛠️ 開發者專區</label>
+      <button type="button" class="btn secondary" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger); width: auto;" onclick="window.forceAppUpdate()">
         ☢️ 強制重啟並清除快取
       </button>
-      <p class="message" style="font-size: 0.8rem; margin-top: 5px;">強制重啟並清除快取紀錄會保留。</p>
     </div>
   `;
 
@@ -2556,6 +2587,11 @@ function renderAdvancedSettingsControls() {
     toggle.checked = state.settings.showProgressOnHome !== false;
   }
 
+  const autoSyncCheckbox = document.getElementById('autoSyncAcrossDevices');
+  if (autoSyncCheckbox) {
+    autoSyncCheckbox.checked = state.settings.autoSyncAcrossDevices === true;
+  }
+  
   const select = document.getElementById('jumpLevelSelect');
   if (!select) return;
 

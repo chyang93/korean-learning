@@ -66,22 +66,34 @@ body.is-offline .online-status {
 
 .offline-toast {
   position: fixed;
-  bottom: 30px;
+  bottom: 15px;              /* 1. 稍微下移，減少對按鈕的遮擋 */
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(20, 20, 20, 0.95);
+  background: rgba(10, 10, 10, 0.9); /* 稍微加深底色，增加對比 */
   color: #ffc107;
-  padding: 12px 24px;
+  
+  /* 2. 核心修正：強制不換行、縮小字體與間距 */
+  white-space: nowrap;       
+  font-size: 0.75rem;        
+  padding: 6px 14px;         
+  gap: 8px;                  
+  
   border-radius: 50px;
-  border: 1px solid #ffc107;
-  box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+  border: 1px solid rgba(255, 193, 7, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   z-index: 10000;
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   font-weight: bold;
-  pointer-events: none;
+  pointer-events: none;      /* 確保點擊可以穿透，不干擾操作 */
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@media (max-width: 600px) {
+  .offline-toast {
+    font-size: 0.7rem;
+    padding: 5px 10px;
+  }
 }
 
 .offline-toast.hidden {

@@ -37,7 +37,8 @@ const defaultState = {
     speakDialogueSpeaker: true,
     theme: 'dark',
     autoPlayCorrect: true, 
-    syncTestVocabBookmark: true
+    syncTestVocabBookmark: true,
+    autoSyncAcrossDevices: false
   },
   chatHistory: []
 };
