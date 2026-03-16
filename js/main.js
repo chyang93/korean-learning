@@ -248,6 +248,8 @@ async function handleProgressSync(user) {
       }
 
       if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
+      if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
+      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true;
 
       return false;
     };
@@ -260,34 +262,27 @@ async function handleProgressSync(user) {
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
         console.log('🔄 跨裝置自動同步：已載入雲端最新資料');
         refreshCurrentRoute();
+        showInfo('✅ 已成功載入雲端最新資料');
         return;
       }
 
       // 🛑 未勾選：跳出對話框詢問
-      const pLocal = localState.progress || {};
-      const pCloud = cloudState.progress || {};
-      const diffText = [`• 本機紀錄 vs 雲端紀錄 有所不同`];
-
-      if (Number(pLocal.currentLinearId || -200) !== Number(pCloud.currentLinearId || -200)) {
-        diffText.push(`• 課程進度：本機 ${pLocal.currentLinearId || -200} / 雲端 ${pCloud.currentLinearId || -200}`);
-      }
-
-      const diffString = diffText.join('\n');
+      const diffString = `• 本機與雲端紀錄有所不同`;
 
       const choice = window.confirm(
         `🔍 發現不同裝置的紀錄不一致！\n\n` +
-        `【差異摘要】\n${diffString}\n\n` +
+        `${diffString}\n\n` +
         `按「確定」：下載雲端進度（覆蓋此裝置）\n` +
-        `按「取消」：保留本機進度（將本機進度上傳並合併至雲端）`
+        `按「取消」：保留本機進度（將本機紀錄合併至雲端）`
       );
 
       if (choice) {
-        // 下載雲端
+        // 下載雲端並覆蓋
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
-        showInfo('✅ 已成功載入雲端資料');
         refreshCurrentRoute();
+        showInfo('✅ 已成功載入雲端進度');
       } else {
-        // 保留本機：執行合併並強制上傳
+        // 保留本機：執行智能合併並強制上傳，不再次詢問
         const merged = mergeStateForConflict(localState, cloudState);
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
         await setDoc(userRef, merged);
@@ -1376,7 +1371,6 @@ function renderStartView() {
     if (btn && !nextUnlocked) {
       btn.disabled = false;
       if (hint) hint.innerHTML = '✅ 章節已完成！請點擊下方進入下一課';
-      showInfo('恭喜！本章節學習完成。');
       nextUnlocked = true;
     }
   };
@@ -3393,6 +3387,7 @@ function showInfo(text) {
   toast.style.color = '#fff';
   toast.style.opacity = '1';
   toast.style.zIndex = '99999';
+  toast.style.pointerEvents = 'none';
   toast.innerHTML = `<i class="fas fa-rocket"></i> <span>${text}</span>`;
 
   document.body.appendChild(toast);
@@ -3446,16 +3441,26 @@ async function handleTestResult(resultData) {
 
 async function flushOfflineResults() {
   const offlineResults = JSON.parse(localStorage.getItem(OFFLINE_RESULTS_KEY) || '[]');
-  if (!offlineResults.length) return;
 
-  console.log('🔄 偵測到網路回復，執行背景合併...');
-  for (const record of offlineResults) {
-    await uploadToFirebase(record);
+  // 無論有無測驗紀錄，只要網路回來，就強制觸發一次主資料同步（含星星標記）
+  try {
+    // 1. 同步離線期間的測驗筆數紀錄
+    if (offlineResults.length > 0) {
+      for (const record of offlineResults) {
+        // 這裡的 uploadToFirebase 實際上會呼叫 triggerCloudSave()
+        await uploadToFirebase(record);
+      }
+      localStorage.removeItem(OFFLINE_RESULTS_KEY);
+    }
+
+    // 2. 核心修正：強制執行一次完整的背景同步，將離線標記的星星推上雲端
+    await triggerCloudSave();
+
+    // 3. 顯示火箭綠色提示
+    showInfo('🚀 已自動將離線與最新紀錄合併');
+  } catch (err) {
+    console.error('離線同步失敗:', err);
   }
-
-  localStorage.removeItem(OFFLINE_RESULTS_KEY);
-  // 顯示你要求的特定訊息
-  showInfo('🚀 已自動將離線與最新紀錄合併');
 }
 
 function initNetworkStatusBadge() {
@@ -3468,7 +3473,6 @@ function initNetworkStatusBadge() {
 
   window.addEventListener('offline', () => {
     updateOfflineVisualState();
-    showInfo('🛰️ 網路中斷，已切換至離線模式');
   });
 }
 
