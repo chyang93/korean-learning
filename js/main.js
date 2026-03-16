@@ -113,10 +113,14 @@ let grammarData = [];
 let pronunciationData = [];
 let vocabData = [];
 let irregularMap = {};
+let vocabInfiniteObserver = null;
+let historyInfiniteObserver = null;
 
 const uiState = {
   vocabPart: 'all',
   vocabFilter: 'all',
+  vocabPageSize: 30,
+  vocabDisplayLimit: 30,
   pronunciationChapter: 'all',
   pronunciationFilter: 'all',
   vocabTestSource: 'all',
@@ -124,6 +128,8 @@ const uiState = {
   vocabTestCount: 10,
   vocabTestDirection: 'ko-to-zh',
   vocabTestSession: null,
+  historyPageSize: 10,
+  historyDisplayLimit: 10,
   grammarPart: 'all',
   grammarFilter: 'all',
   irregularType: 'ㅂ',
@@ -1309,34 +1315,30 @@ function renderStartView() {
     const sourceText = typeof text === 'string' ? text : String(text || '');
     if (!sourceText.trim()) return;
 
-    const speakable = sourceText.replace(/[\s\/\[\]\(\)（）.,!?:：\-，。！？、…]/g, '');
-    if (!speakable) return;
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints > 0)
+      || (window.innerWidth <= 800);
 
     let chunks = [sourceText];
-    // 偵測是否混合韓文與中文
     if (/[\u4e00-\u9fa5]/.test(sourceText) && /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(sourceText)) {
       chunks = sourceText.split(/([가-힣ㄱ-ㅎㅏ-ㅣ]+)/g).filter((p) => p && p.trim() !== '');
     }
 
-    // 🟢 裝置偵測：判斷是否為行動裝置
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-
     for (const chunk of chunks) {
-      const isChinese = /[\u4e00-\u9fa5]/.test(chunk);
+      const speakText = chunk.replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』]/g, '').trim();
+      if (!speakText) continue;
+
+      const isChinese = /[\u4e00-\u9fa5]/.test(speakText);
       const userSettings = getState().settings;
 
       if (isChinese) {
-        // 🚀 中文語速：電腦 1.6x，行動裝置 1.2x
-        const chineseSpeed = isMobile ? 1.2 : 1.6;
+        const chineseSpeed = isMobile ? 1.2 : 1.8;
         setSpeed(chineseSpeed);
       } else {
-        // 🇰🇷 韓文語速：恢復 UI 設定值
         setSpeed(userSettings.audioSpeed || 1.0);
       }
 
-      await audioController.speak(chunk, { cancelFirst: false });
-
-      // 播放完畢後將全域語速撥回，維持 UI 一致性
+      await audioController.speak(speakText, { cancelFirst: false });
       setSpeed(userSettings.audioSpeed || 1.0);
 
       if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
@@ -1720,6 +1722,9 @@ function renderVocabularyView() {
     return true;
   });
 
+  const visibleList = list.slice(0, uiState.vocabDisplayLimit);
+  const hasMore = list.length > uiState.vocabDisplayLimit;
+
   container.innerHTML = `
     <div class="card">
       <h2>單字</h2>
@@ -1745,20 +1750,26 @@ function renderVocabularyView() {
         <button class="btn ${uiState.vocabFilter === 'bookmarked' ? '' : 'secondary'}" data-vfilter="bookmarked">標記</button>
       </div>
 
-      <div class="item-list" style="margin-top:15px;">
-        ${list.length ? list.map((item) => renderVocabItem(item, learned, bookmarked)).join('') : '<div class="card empty">此分類暫無單字</div>'}
+      <div class="item-list" id="vocab-list-container" style="margin-top:15px;">
+        ${visibleList.length ? visibleList.map((item) => renderVocabItem(item, learned, bookmarked)).join('') : '<div class="card empty">此分類暫無單字</div>'}
       </div>
+
+      ${hasMore ? '<div id="vocab-infinite-sentinel" style="height: 50px; text-align: center; color: var(--text-muted); padding-top: 10px;">⌛ 正在讀取更多單字...</div>' : ''}
     </div>
   `;
 
+  initVocabInfiniteScroll(hasMore);
+
   container.querySelector('#partSelect').addEventListener('change', (event) => {
     uiState.vocabPart = event.target.value;
+    uiState.vocabDisplayLimit = uiState.vocabPageSize;
     renderVocabularyView();
   });
 
   container.querySelectorAll('[data-vfilter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       uiState.vocabFilter = btn.dataset.vfilter;
+      uiState.vocabDisplayLimit = uiState.vocabPageSize;
       renderVocabularyView();
     });
   });
@@ -1797,6 +1808,30 @@ container.querySelectorAll('[data-action="toggle-vocab-bookmark"]').forEach((btn
       renderVocabularyView();
     });
   });
+}
+
+function initVocabInfiniteScroll(hasMore) {
+  if (vocabInfiniteObserver) {
+    vocabInfiniteObserver.disconnect();
+    vocabInfiniteObserver = null;
+  }
+  if (!hasMore) return;
+
+  const sentinel = document.getElementById('vocab-infinite-sentinel');
+  if (!sentinel) return;
+
+  vocabInfiniteObserver = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) {
+      uiState.vocabDisplayLimit += uiState.vocabPageSize;
+      vocabInfiniteObserver?.disconnect();
+      vocabInfiniteObserver = null;
+      renderVocabularyView();
+    }
+  }, {
+    rootMargin: '200px'
+  });
+
+  vocabInfiniteObserver.observe(sentinel);
 }
 
 function renderVocabItem(item, learned, bookmarked) {
@@ -2080,15 +2115,23 @@ function moveToNextVocabQuestion() {
   session.lastAnswered = null;
 
   if (session.currentIndex >= session.questions.length && !session.historySaved) {
-    const chapterLabel = uiState.vocabTestChapters && uiState.vocabTestChapters.trim()
-      ? `章節 ${uiState.vocabTestChapters}`
-      : '全部單字綜合測驗';
-    const sourceLabel = uiState.vocabTestSource === 'bookmarked' ? '僅標記單字' : '全部單字';
+    const actualParts = [...new Set(session.questions.map((q) => {
+      const vocabItem = vocabData.find((item) => Number(item.id) === Number(q.id));
+      return vocabItem ? Number(vocabItem.part) : null;
+    }))]
+      .filter((part) => part !== null && part > 0)
+      .sort((left, right) => left - right);
+
+    const isBookmarked = uiState.vocabTestSource === 'bookmarked';
+    const finalTitle = isBookmarked
+      ? `⭐ 標記單字測驗${actualParts.length > 0 ? ` (來自章節: ${actualParts.join(', ')})` : ' (全體)'}`
+      : (actualParts.length > 0 ? `📚 章節測驗: ${actualParts.join(', ')}` : '📖 綜合測驗 (全部)');
+
     const modeLabel = uiState.vocabTestDirection === 'zh-to-ko' ? '中翻韓' : '韓翻中';
     const record = {
       id: Date.now(),
       time: new Date().toLocaleString(),
-      chapter: `${chapterLabel} (${sourceLabel})`,
+      chapter: finalTitle,
       mode: modeLabel,
       score: session.score,
       total: session.questions.length,
@@ -2123,6 +2166,7 @@ function bindTestHistoryDialog() {
 window.openTestHistory = function() {
   const dialog = document.getElementById('testHistoryDialog');
   if (!dialog) return;
+  uiState.historyDisplayLimit = uiState.historyPageSize;
   renderTestHistoryList();
   dialog.showModal();
 };
@@ -2165,13 +2209,20 @@ function renderTestHistoryList() {
   const state = getState();
   if (!container) return;
 
+  if (historyInfiniteObserver) {
+    historyInfiniteObserver.disconnect();
+    historyInfiniteObserver = null;
+  }
+
   if (!history.length) {
     container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">尚無測驗紀錄，快去挑戰吧！</p>';
     return;
   }
 
+  const visibleHistory = history.slice(0, uiState.historyDisplayLimit);
+  const hasMore = history.length > uiState.historyDisplayLimit;
   const bookmarkedSet = new Set(state.progress.bookmarkedVocab || []);
-  container.innerHTML = history.map((record) => `
+  let html = visibleHistory.map((record) => `
     <div class="history-card">
       <div class="history-header" onclick="this.parentElement.classList.toggle('expanded')">
         <div class="history-info">
@@ -2210,6 +2261,35 @@ function renderTestHistoryList() {
       </div>
     </div>
   `).join('');
+
+  if (hasMore) {
+    html += '<div id="history-infinite-sentinel" style="height: 50px; text-align: center; color: var(--text-muted); padding: 15px;">⌛ 正在加載更多紀錄...</div>';
+  }
+
+  container.innerHTML = html;
+  initHistoryInfiniteScroll(hasMore);
+}
+
+function initHistoryInfiniteScroll(hasMore) {
+  if (!hasMore) return;
+
+  const sentinel = document.getElementById('history-infinite-sentinel');
+  const scrollContainer = document.getElementById('testHistoryDialog');
+  if (!sentinel || !scrollContainer) return;
+
+  historyInfiniteObserver = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) {
+      uiState.historyDisplayLimit += uiState.historyPageSize;
+      historyInfiniteObserver?.disconnect();
+      historyInfiniteObserver = null;
+      renderTestHistoryList();
+    }
+  }, {
+    root: scrollContainer,
+    rootMargin: '100px'
+  });
+
+  historyInfiniteObserver.observe(sentinel);
 }
 
 function getVocabTestPool() {
@@ -2219,7 +2299,10 @@ function getVocabTestPool() {
     pool = pool.filter((v) => bookmarked.has(v.id));
   }
   if (uiState.vocabTestChapters && uiState.vocabTestChapters.trim() !== '') {
-    const parts = uiState.vocabTestChapters.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n));
+    const parts = uiState.vocabTestChapters
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => !Number.isNaN(n) && n > 0);
     if (parts.length > 0) {
       pool = pool.filter((v) => parts.includes(Number(v.part)));
     }
@@ -2628,7 +2711,7 @@ function renderChatView() {
         ${markBtnHtml}
       </div>
     `;
-    handleSpeak(mission.ko || '');
+    window.playExampleSentence(mission.ko || '');
   });
 
   input.addEventListener('keydown', (event) => {
@@ -2663,10 +2746,10 @@ function renderChatView() {
   });
 
   if (isListening && mission.ko) {
-    handleSpeak(mission.ko);
+    window.playExampleSentence(mission.ko);
     const replayBtn = container.querySelector('#replayMissionBtn');
     if (replayBtn) {
-      replayBtn.addEventListener('click', () => handleSpeak(mission.ko));
+      replayBtn.addEventListener('click', () => window.playExampleSentence(mission.ko));
     }
   }
 
@@ -2744,11 +2827,11 @@ function checkMissionAnswer(userText) {
 
   const target = uiState.chatMission?.answer || '';
 
-  // 🟢 核心修正：加入冒號 (:：)、全半形英文字母 (A-Za-zＡ-Ｚａ-ｚ) 與 \s(空格/換行) 的過濾
-  const filterRegex = /[.,!?，。！？:：\sA-Za-zＡ-Ｚａ-ｚ]/g;
+  const removeBracketsRegex = /\([^)]*\)|（[^）]*）|\[[^\]]*\]|【[^】]*】/g;
+  const filterRegex = /[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\sA-Za-zＡ-Ｚａ-ｚ]/g;
 
-  const cleanUser = String(userText).replace(filterRegex, '');
-  const cleanTarget = String(target).replace(filterRegex, '');
+  const cleanUser = String(userText).replace(removeBracketsRegex, '').replace(filterRegex, '');
+  const cleanTarget = String(target).replace(removeBracketsRegex, '').replace(filterRegex, '');
 
   // 🟢 在 checkMissionAnswer 中替換標記按鈕邏輯
   const state = getState();
@@ -2919,8 +3002,37 @@ window.playExampleSentence = function (text, btnElement) {
       }
     }
   }
-  audioController
-    .speak(text)
+
+  const state = getState();
+  const speakSpeaker = state.settings.speakDialogueSpeaker;
+  const normalizedText = String(text);
+  const dialogueMatch = normalizedText.match(/^(A[:：]\s*)(.*?)(\s*B[:：]\s*)(.*)$/);
+
+  const playPromise = (async () => {
+    if (speakSpeaker && dialogueMatch) {
+      await audioController.speak('A');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await audioController.speak(dialogueMatch[2]);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await audioController.speak('B');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await audioController.speak(dialogueMatch[4]);
+      return;
+    }
+
+    const singleMatch = normalizedText.match(/^([AB])[:：]\s*(.*)$/);
+    if (speakSpeaker && singleMatch) {
+      await audioController.speak(singleMatch[1]);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await audioController.speak(singleMatch[2]);
+      return;
+    }
+
+    const cleanText = normalizedText.replace(/^[AB][:：]\s*/, '').replace(/\s*B[:：]\s*/g, ' ').trim();
+    await audioController.speak(cleanText || normalizedText);
+  })();
+
+  playPromise
     .then(() => {
       if (btnElement) btnElement.classList.remove('playing');
     })
