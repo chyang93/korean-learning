@@ -236,9 +236,30 @@ async function handleProgressSync(user) {
 
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
-    
-    // 🟢 檢查是否有任何不同（不只是 meaningful conflict）
-    const isDifferent = JSON.stringify(localState.progress) !== JSON.stringify(cloudState.progress);
+
+    // 🟢 嚴格比對進度與標記內容，避免陣列順序造成誤判
+    const isProgressDifferent = (p1, p2) => {
+      if (Number(p1?.currentLinearId || -200) !== Number(p2?.currentLinearId || -200)) {
+        return true;
+      }
+
+      const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
+      for (const key of keys) {
+        const arr1 = [...(p1?.[key] || [])].map((value) => String(value)).sort();
+        const arr2 = [...(p2?.[key] || [])].map((value) => String(value)).sort();
+        if (arr1.length !== arr2.length) {
+          return true;
+        }
+        for (let index = 0; index < arr1.length; index += 1) {
+          if (arr1[index] !== arr2[index]) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    const isDifferent = isProgressDifferent(localState.progress || {}, cloudState.progress || {});
 
     if (isDifferent) {
       const localId = localState.progress.currentLinearId || -200;
@@ -1224,7 +1245,7 @@ function renderStartView() {
   let nextBtnHtml = '';
   if (isPron && cid === -119) {
     nextBtnHtml = buildNextButtonHtml('前往文法課：#1');
-  } else if (!isPron && cid === 115) {
+  } else if (!isPron && cid === 118) {
     // 這裡加入了垂直佈局 (flex-direction: column) 以容納下方的文字
     nextBtnHtml = `
       <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
@@ -1315,10 +1336,6 @@ function renderStartView() {
     const sourceText = typeof text === 'string' ? text : String(text || '');
     if (!sourceText.trim()) return;
 
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
-      || (navigator.maxTouchPoints > 0)
-      || (window.innerWidth <= 800);
-
     let chunks = [sourceText];
     if (/[\u4e00-\u9fa5]/.test(sourceText) && /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(sourceText)) {
       chunks = sourceText.split(/([가-힣ㄱ-ㅎㅏ-ㅣ]+)/g).filter((p) => p && p.trim() !== '');
@@ -1327,20 +1344,13 @@ function renderStartView() {
     for (const chunk of chunks) {
       const speakText = chunk.replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』]/g, '').trim();
       if (!speakText) continue;
-
-      const isChinese = /[\u4e00-\u9fa5]/.test(speakText);
       const userSettings = getState().settings;
 
-      if (isChinese) {
-        const chineseSpeed = isMobile ? 1.2 : 1.8;
-        setSpeed(chineseSpeed);
-      } else {
-        setSpeed(userSettings.audioSpeed || 1.0);
-      }
-
-      await audioController.speak(speakText, { cancelFirst: false });
       setSpeed(userSettings.audioSpeed || 1.0);
 
+      await audioController.speak(speakText, { cancelFirst: false });
+
+      setSpeed(userSettings.audioSpeed || 1.0);
       if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
     }
   };
@@ -1403,7 +1413,7 @@ function renderStartView() {
           await safeSpeak(dialogueMatch[4], runId);
           await safeWait(1500, runId);
 
-          const cleanZh = (ex.zh || '').replace(/^[AB][:：]\s*/g, '').replace(/\s*B[:：]\s*/g, ' ').replace(/\[.*?\]/g, '').trim();
+          const cleanZh = (ex.zh || '').replace(/^[AB][:：]\s*/g, '').replace(/\s*B[:：]\s*/g, ' ').replace(/\[.*?\]|\(.*?\)|（.*?）/g, '').trim();
           if (cleanZh) await safeSpeak(cleanZh, runId);
         } else {
           const singleMatch = (ex.ko || '').match(/^([AB])[:：]\s*(.*)$/);
@@ -1415,7 +1425,7 @@ function renderStartView() {
           }
 
           await safeWait(400, runId);
-          const cleanZh = (ex.zh || '').replace(/^[AB][:：]\s*/, '').replace(/\[.*?\]/g, '').trim();
+          const cleanZh = (ex.zh || '').replace(/^[AB][:：]\s*/, '').replace(/\[.*?\]|\(.*?\)|（.*?）/g, '').trim();
           if (cleanZh) await safeSpeak(cleanZh, runId);
         }
 
@@ -2294,9 +2304,16 @@ function initHistoryInfiniteScroll(hasMore) {
 
 function getVocabTestPool() {
   let pool = vocabData;
+  const state = getState();
   if (uiState.vocabTestSource === 'bookmarked') {
-    const bookmarked = new Set(getState().progress.bookmarkedVocab);
-    pool = pool.filter((v) => bookmarked.has(v.id));
+    const globalMarks = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+    const localTestMarks = new Set(getTestBookmarks('vocab').map((bookmark) => String(bookmark.ko || '').trim()));
+
+    pool = pool.filter((v) => {
+      const vocabId = String(v.id);
+      const vocabKo = String(v.ko || '').trim();
+      return globalMarks.has(vocabId) || localTestMarks.has(vocabKo);
+    });
   }
   if (uiState.vocabTestChapters && uiState.vocabTestChapters.trim() !== '') {
     const parts = uiState.vocabTestChapters
@@ -2771,14 +2788,14 @@ function refreshChatMission() {
   let targetVocab = vocabData;
 
   if (uiState.chatGrammarChapters) {
-    const parts = uiState.chatGrammarChapters.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n));
+    const parts = uiState.chatGrammarChapters.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0);
     if (parts.length > 0) {
       targetGrammar = grammarData.filter((g) => parts.includes(Number(g.part)));
     }
   }
 
   if (uiState.chatVocabChapters) {
-    const parts = uiState.chatVocabChapters.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n));
+    const parts = uiState.chatVocabChapters.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0);
     if (parts.length > 0) {
       targetVocab = vocabData.filter((v) => parts.includes(Number(v.part)));
     }
@@ -2828,10 +2845,17 @@ function checkMissionAnswer(userText) {
   const target = uiState.chatMission?.answer || '';
 
   const removeBracketsRegex = /\([^)]*\)|（[^）]*）|\[[^\]]*\]|【[^】]*】/g;
-  const filterRegex = /[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\sA-Za-zＡ-Ｚａ-ｚ]/g;
+  let cleanTarget = String(target).replace(removeBracketsRegex, '');
+  let cleanUser = String(userText).replace(removeBracketsRegex, '');
 
-  const cleanUser = String(userText).replace(removeBracketsRegex, '').replace(filterRegex, '');
-  const cleanTarget = String(target).replace(removeBracketsRegex, '').replace(filterRegex, '');
+  // 🟢 精準移除 A: / B: 對話標籤（大小寫皆可）
+  cleanTarget = cleanTarget.replace(/[AB][:：]/gi, '');
+  cleanUser = cleanUser.replace(/[AB][:：]/gi, '');
+
+  // 🟢 僅移除標點與空白，保留英文字母避免誤判
+  const filterRegex = /[.,!?:：，。！？、…\s]/g;
+  cleanTarget = cleanTarget.replace(filterRegex, '');
+  cleanUser = cleanUser.replace(filterRegex, '');
 
   // 🟢 在 checkMissionAnswer 中替換標記按鈕邏輯
   const state = getState();
@@ -2847,7 +2871,7 @@ function checkMissionAnswer(userText) {
     feedback.innerHTML = `<span style="color:var(--neon-color); font-weight:bold;">100分正確！🎉</span> ${markBtnHtml}<br>正解：${escapeHtml(target)}`;
     const state = getState();
     if (state.settings.autoPlayCorrect) {
-      handleSpeak(uiState.chatMission?.ko || '');
+      window.playExampleSentence(uiState.chatMission?.ko || '');
     }
     return;
   }
@@ -3045,7 +3069,8 @@ window.playExampleSentence = function (text, btnElement) {
 // 🟢 標籤渲染輔助
 function renderTagsHtml(str, prefix = '') {
   if (!str || str.trim() === '') return `<span class="tag-placeholder">全部${prefix}章節</span>`;
-  const parts = str.split(',').map((s) => s.trim()).filter(Boolean);
+  const parts = str.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0);
+  if (parts.length === 0) return `<span class="tag-placeholder">全部${prefix}章節</span>`;
   return parts.map((p) => `<span class="tag-chip">Part ${p}</span>`).join('');
 }
 

@@ -104,10 +104,10 @@ export function speak(text, options = {}) {
 
   const utterance = new SpeechSynthesisUtterance();
   applyVoiceAndClean(utterance, text);
-    
-  // 🟢 智慧語速判斷：偵測到中文時，語速乘以 1.8
+
+  // 🟢 統一中文語速：偵測到中文時，語速乘以 1.2
   const isChinese = /[\u4e00-\u9fa5]/.test(text);
-  utterance.rate = isChinese ? currentSpeed * 1.8 : currentSpeed;
+  utterance.rate = isChinese ? currentSpeed * 1.2 : currentSpeed;
 
   if (options.onstart) utterance.onstart = options.onstart;
   if (options.onend) utterance.onend = options.onend;
@@ -169,9 +169,9 @@ export function speakOne(text) {
     
     applyVoiceAndClean(utterance, text);
     
-    // 🟢 同步智慧語速邏輯
+    // 🟢 統一中文語速：偵測到中文時，語速乘以 1.2
     const isChinese = /[\u4e00-\u9fa5]/.test(text);
-    utterance.rate = isChinese ? currentSpeed * 1.8 : currentSpeed;
+    utterance.rate = isChinese ? currentSpeed * 1.2 : currentSpeed;
 
     utterance.onend = () => resolve();
     utterance.onerror = () => resolve();
