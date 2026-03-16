@@ -3430,7 +3430,6 @@ function saveResultToLocalStorage(result) {
 async function handleTestResult(resultData) {
   if (navigator.onLine) {
     await uploadToFirebase(resultData);
-    showInfo('✅ 測試結果已同步至雲端');
   } else {
     saveResultToLocalStorage({ ...resultData, timestamp: Date.now() });
     showInfo('🛰️ 目前處於離線狀態，結果已儲存在本地，上線後將自動同步。');
