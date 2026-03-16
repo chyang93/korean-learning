@@ -174,14 +174,15 @@ function mergeStateForConflict(localState = {}, cloudState = {}) {
     progress: mergeProgressArrays(localState.progress || {}, cloudState.progress || {})
   };
 
-  // 合併測驗成績紀錄 (依 ID 去重)
   const combinedHistory = [...(localState.testHistory || []), ...(cloudState.testHistory || [])];
-  merged.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values())
-    .sort((a, b) => b.id - a.id);
+  merged.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values()).sort((a, b) => b.id - a.id);
 
-  // 合併單字測驗標記 (依韓文單字去重)
   const combinedVocabMarks = [...(localState.testBookmarksVocab || []), ...(cloudState.testBookmarksVocab || [])];
   merged.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map(item => [String(item.ko).trim(), item])).values());
+
+  // 🟢 新增：合併全能測試標記
+  const combinedChatMarks = [...(localState.testBookmarksChat || []), ...(cloudState.testBookmarksChat || [])];
+  merged.testBookmarksChat = Array.from(new Map(combinedChatMarks.map(item => [String(item.ko).trim(), item])).values());
 
   return merged;
 }
@@ -239,6 +240,7 @@ async function triggerCloudSave() {
 // 🟢 修改 2：跨裝置衝突判斷與詳細差異清單
 // 🟢 修改：跨裝置衝突判斷，加入「測驗成績數量」的比對
 // 🟢 修正：恢復詳細差異文字顯示
+// 🟢 修正 1：確保顯示「所有項目」的詳細差異，並納入全能測試比對
 async function handleProgressSync(user) {
   const userRef = doc(db, 'users', user.uid);
   const docSnap = await getDoc(userRef);
@@ -250,13 +252,21 @@ async function handleProgressSync(user) {
     const isDataDifferent = (local, cloud) => {
       const p1 = local.progress || {};
       const p2 = cloud.progress || {};
+      
+      // 1. 檢查線性進度
       if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
+      
+      // 2. 檢查所有學習與標記陣列長度
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
         if ((p1[key] || []).length !== (cloud[key] || []).length) return true;
       }
+      
+      // 3. 檢查測驗相關數量 (包含全能測試標記)
       if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
       if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
+      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true; // 🟢 補上此項
+
       return false;
     };
 
@@ -269,19 +279,31 @@ async function handleProgressSync(user) {
         return;
       }
 
-      // 🔴 關鍵修正：組裝詳細差異文字
       const pLocal = localState.progress || {};
       const pCloud = cloudState.progress || {};
       const diffText = [];
       
+      // 🟢 補全詳細差異文字顯示
       if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) 
         diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId} vs 雲端 ID ${pCloud.currentLinearId}`);
+      
       if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) 
         diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} vs 雲端 ${pCloud.learnedVocab?.length || 0}`);
+      
       if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) 
         diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} vs 雲端 ${pCloud.bookmarkedVocab?.length || 0}`);
+      
+      if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) 
+        diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} vs 雲端 ${pCloud.learnedGrammar?.length || 0}`);
+      
       if ((localState.testHistory?.length || 0) !== (cloudState.testHistory?.length || 0)) 
         diffText.push(`• 成績紀錄：本機 ${localState.testHistory?.length || 0} 筆 vs 雲端 ${cloudState.testHistory?.length || 0} 筆`);
+
+      // 🟢 補上測驗標記顯示
+      const localMarks = (localState.testBookmarksVocab?.length || 0) + (localState.testBookmarksChat?.length || 0);
+      const cloudMarks = (cloudState.testBookmarksVocab?.length || 0) + (cloudState.testBookmarksChat?.length || 0);
+      if (localMarks !== cloudMarks)
+        diffText.push(`• 測驗標記：本機 ${localMarks} 個 vs 雲端 ${cloudMarks} 個`);
 
       const diffString = diffText.length > 0 ? diffText.join('\n') : "• 標記或細部設定有所不同";
 
@@ -3318,21 +3340,8 @@ document.getElementById('btn-clear-test-bookmarks')?.addEventListener('click', (
 window.toggleBookmarkCurrentMission = function(btn) {
   const mission = uiState.chatMission;
   if (!mission) return;
-
-  const icon = btn?.querySelector('i');
-  const isTurningOn = icon ? icon.classList.contains('far') : true;
-
-  // 🟢 核心修正：僅記錄在測驗專屬紀錄，不再強制永久同步寫入主單字庫
-  toggleTestBookmarkItem(mission.ko || '', mission.zh || '', 'chat', isTurningOn);
-
-  if (icon) {
-    icon.classList.toggle('fas', isTurningOn);
-    icon.classList.toggle('far', !isTurningOn);
-    icon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
-    icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
-  }
-
-  void triggerCloudSave();
+  // 這裡 type 傳入 'chat'，會自動觸發 toggleTestBookmark 內的設定判斷
+  window.toggleTestBookmark(btn, mission.ko || '', mission.zh || '', 'chat');
 };
 
 window.toggleBookmarkCurrentVocabTest = function(btn) {
@@ -3346,18 +3355,33 @@ window.toggleBookmarkCurrentVocabTest = function(btn) {
 // 🟢 切換星星狀態的通用函式
 window.toggleTestBookmark = function(btn, ko, zh, type) {
   const icon = btn?.querySelector('i');
-  const bookmarks = getTestBookmarks(type);
   const cleanKo = String(ko || '').trim();
+  const bookmarks = getTestBookmarks(type);
   const isAlreadyMarked = bookmarks.some((item) => String(item.ko || '').trim() === cleanKo);
+  
+  // 決定是要開啟還是關閉
   const isTurningOn = icon ? icon.classList.contains('far') : !isAlreadyMarked;
 
+  // 1. 記錄到測驗專屬標記 (storage.js 中的 API)
   toggleTestBookmarkItem(ko, zh, type);
 
+  // 2. 實作您的聯動邏輯
   const state = getState();
-  if (type === 'vocab' && state.settings.syncTestVocabBookmark === true) {
-    const vocabItem = vocabData.find((v) => String(v.ko || '').trim() === cleanKo);
-    if (vocabItem) {
-      const isMainBookmarked = state.progress.bookmarkedVocab.includes(vocabItem.id);
+  const vocabItem = vocabData.find((v) => String(v.ko || '').trim() === cleanKo);
+
+  if (vocabItem) {
+    const isMainBookmarked = state.progress.bookmarkedVocab.includes(vocabItem.id);
+    let shouldSyncToBank = false;
+
+    if (type === 'vocab') {
+      // 🟢 要求 1：單字測試 (vocab) 的標記完全同步單字庫
+      shouldSyncToBank = true;
+    } else if (type === 'chat' && state.settings.syncTestVocabBookmark === true) {
+      // 🟢 要求 2：全能測試 (chat) 依照設定決定是否同步
+      shouldSyncToBank = true;
+    }
+
+    if (shouldSyncToBank) {
       if (isTurningOn && !isMainBookmarked) {
         toggleBookmarkedVocab(vocabItem.id);
       } else if (!isTurningOn && isMainBookmarked) {
@@ -3366,6 +3390,7 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
     }
   }
 
+  // 3. UI 更新與背景同步
   if (icon) {
     icon.classList.toggle('fas', isTurningOn);
     icon.classList.toggle('far', !isTurningOn);
@@ -3373,7 +3398,7 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
     icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
   }
 
-  void triggerCloudSave();
+  void triggerCloudSave(); // 始終上傳不詢問
 };
 
 const IS_DEBUG_MODE = false; // 🟢 上線前改為 false
