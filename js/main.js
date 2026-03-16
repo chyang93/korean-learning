@@ -279,27 +279,36 @@ async function handleProgressSync(user) {
         return;
       }
 
-      const pLocal = localState.progress || {};
+const pLocal = localState.progress || {};
       const pCloud = cloudState.progress || {};
       const diffText = [];
       
-      // 🟢 補全詳細差異文字顯示
+      // 1. 課程進度
       if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) 
         diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId} vs 雲端 ID ${pCloud.currentLinearId}`);
       
+      // 2. 單字 (已學 & 標記)
       if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) 
         diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} vs 雲端 ${pCloud.learnedVocab?.length || 0}`);
-      
       if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) 
         diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} vs 雲端 ${pCloud.bookmarkedVocab?.length || 0}`);
       
+      // 3. 文法 (已學 & 標記)
       if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) 
         diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} vs 雲端 ${pCloud.learnedGrammar?.length || 0}`);
+      if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) 
+        diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0}`);
+
+      // 4. 發音 (已學 & 標記)
+      if ((pLocal.learnedPronunciation?.length || 0) !== (pCloud.learnedPronunciation?.length || 0)) 
+        diffText.push(`• 已學發音：本機 ${pLocal.learnedPronunciation?.length || 0} vs 雲端 ${pCloud.learnedPronunciation?.length || 0}`);
+      if ((pLocal.bookmarkedPronunciation?.length || 0) !== (pCloud.bookmarkedPronunciation?.length || 0)) 
+        diffText.push(`• 標記發音：本機 ${pLocal.bookmarkedPronunciation?.length || 0} vs 雲端 ${pCloud.bookmarkedPronunciation?.length || 0}`);
       
+      // 5. 測驗歷史與標記
       if ((localState.testHistory?.length || 0) !== (cloudState.testHistory?.length || 0)) 
         diffText.push(`• 成績紀錄：本機 ${localState.testHistory?.length || 0} 筆 vs 雲端 ${cloudState.testHistory?.length || 0} 筆`);
 
-      // 🟢 補上測驗標記顯示
       const localMarks = (localState.testBookmarksVocab?.length || 0) + (localState.testBookmarksChat?.length || 0);
       const cloudMarks = (cloudState.testBookmarksVocab?.length || 0) + (cloudState.testBookmarksChat?.length || 0);
       if (localMarks !== cloudMarks)
