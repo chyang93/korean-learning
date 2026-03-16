@@ -2530,7 +2530,7 @@ function ensureAdvancedSettingsControls() {
       <button type="button" class="btn secondary" style="width: 100%; border-color: var(--danger); color: var(--danger);" onclick="window.forceAppUpdate()">
         ☢️ 強制重啟並清除快取
       </button>
-      <p class="message" style="font-size: 0.8rem; margin-top: 5px;">當手機看不到 ID 116 以後的課程時使用。</p>
+      <p class="message" style="font-size: 0.8rem; margin-top: 5px;">強制重啟並清除快取紀錄會保留。</p>
     </div>
   `;
 
