@@ -1258,3 +1258,31 @@ option {
 
 /* style.css */
 
+/* =========================================
+   進度文字置中與完整顯示修正
+   ========================================= */
+#home-progress-text {
+  display: block;
+  width: 100% !important;   /* 🟢 強制佔滿寬度，確保以螢幕為準置中 */
+  max-width: 95vw;          /* 避免在極小螢幕碰到邊緣 */
+  margin: 10px auto 15px;
+  text-align: center;       /* 🟢 真正的文字置中 */
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--neon-cyan);
+  letter-spacing: 0.5px;
+  
+  /* 確保不被截斷 */
+  white-space: nowrap;      /* 電腦版預設不換行 */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* 手機版自動切換為換行模式，避免衝出螢幕 */
+@media (max-width: 768px) {
+  #home-progress-text {
+    white-space: normal !important; /* 🟢 手機版自動換行以完整顯示 */
+    word-break: break-all;
+    line-height: 1.5;
+  }
+}

@@ -851,21 +851,7 @@ function renderHomeState() {
 
     if (currentCh) {
       const progressEl = document.createElement('div');
-      progressEl.id = 'home-progress-text';
-      
-      // 設定樣式：單行、字體不要太大、置中對齊
-      progressEl.style.color = 'var(--neon-cyan)';
-      progressEl.style.fontSize = '0.85rem';
-      progressEl.style.fontWeight = 'bold';
-      progressEl.style.textAlign = 'center';
-      progressEl.style.whiteSpace = 'nowrap';
-      progressEl.style.overflow = 'hidden';
-      progressEl.style.textOverflow = 'ellipsis';
-      progressEl.style.width = '100%';
-      progressEl.style.maxWidth = '500px';
-      progressEl.style.margin = '8px auto 15px auto'; // 控制與上下元素的間距
-      progressEl.style.letterSpacing = '0.5px';
-
+      progressEl.id = 'home-progress-text'; // 🟢 只給 ID，樣式全部交給 CSS
       progressEl.textContent = `目前進度：${currentCh.title}`;
 
       // 尋找「v5.3-Codex 系統已就緒」的元素，並將進度文字插在它後面
@@ -2114,31 +2100,33 @@ function chooseVocabTestAnswer(selected) {
 
 function moveToNextVocabQuestion() {
   const session = uiState.vocabTestSession;
-  if (!session || !session.lastAnswered) {
-    return;
-  }
+  if (!session || !session.lastAnswered) return;
 
   session.currentIndex += 1;
   session.lastAnswered = null;
 
+  // 當測驗結束時存入歷史紀錄
   if (session.currentIndex >= session.questions.length && !session.historySaved) {
-    const actualParts = [...new Set(session.questions.map((q) => {
-      const vocabItem = vocabData.find((item) => Number(item.id) === Number(q.id));
-      return vocabItem ? Number(vocabItem.part) : null;
-    }))]
-      .filter((part) => part !== null && part > 0)
-      .sort((left, right) => left - right);
-
+    
+    // 🟢 核心修正：直接抓取使用者在 UI 選取的章節設定
     const isBookmarked = uiState.vocabTestSource === 'bookmarked';
-    const finalTitle = isBookmarked
-      ? `⭐ 標記單字測驗${actualParts.length > 0 ? ` (來自章節: ${actualParts.join(', ')})` : ' (全體)'}`
-      : (actualParts.length > 0 ? `📚 章節測驗: ${actualParts.join(', ')}` : '📖 綜合測驗 (全部)');
+    const selectedChapters = uiState.vocabTestChapters?.trim();
+
+    let finalTitle = "";
+    if (isBookmarked) {
+      // 標記模式
+      finalTitle = `⭐ 標記測驗${selectedChapters ? ` (Part: ${selectedChapters})` : ' (全體)'}`;
+    } else {
+      // 一般模式：如果有選章節就顯示章節，沒選就顯示綜合
+      finalTitle = selectedChapters ? `📚 章節測驗: ${selectedChapters}` : '📖 綜合測驗 (全部)';
+    }
 
     const modeLabel = uiState.vocabTestDirection === 'zh-to-ko' ? '中翻韓' : '韓翻中';
+    
     const record = {
       id: Date.now(),
       time: new Date().toLocaleString(),
-      chapter: finalTitle,
+      chapter: finalTitle, // 🟢 使用修正後的標題
       mode: modeLabel,
       score: session.score,
       total: session.questions.length,
@@ -2149,10 +2137,9 @@ function moveToNextVocabQuestion() {
         isCorrect: q.isCorrect === true
       }))
     };
+    
     addTestRecord(record);
-    void handleTestResult(record).catch((error) => {
-      console.error('處理測驗結果同步失敗:', error);
-    });
+    void handleTestResult(record).catch(err => console.error(err));
     session.historySaved = true;
   }
 }
