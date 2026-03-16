@@ -2238,7 +2238,7 @@ function renderTestHistoryList() {
     <div class="history-card">
       <div class="history-header" onclick="this.parentElement.classList.toggle('expanded')">
         <div class="history-info">
-          <div class="history-title"> ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
+          <div class="history-title">📖 ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
           <div class="history-meta">📅 ${escapeHtml(record.time || '')}</div>
         </div>
         <div class="history-score">${Number(record.score) || 0} / ${Number(record.total) || 0}</div>
