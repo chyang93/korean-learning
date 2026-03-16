@@ -1286,16 +1286,20 @@ function renderStartView() {
     </div>`;
 
   // 🟢 修正：在結業按鈕下方加入提醒文字
+// 🟢 修正 1：精確設定 -125 與 118 的按鈕文字
   let nextBtnHtml = '';
-  if (isPron && cid === -119) {
+  if (isPron && cid === -125) {
+    // 當前是發音最後一課
     nextBtnHtml = buildNextButtonHtml('前往文法課：#1');
-  } else if (!isPron && !nextGrammar) {
+  } else if (!isPron && (cid === 118 || !nextGrammar)) {
+    // 當前是文法第 118 課，或是資料庫已到盡頭
     nextBtnHtml = `
       <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
-        <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 學習完畢！本章為最後一課。</p>
+        <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 學習完畢！恭喜您完成所有課程。</p>
         <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>🎉 已結業 (回主畫面)</button>
       </div>`;
   } else {
+    // 一般情況
     nextBtnHtml = buildNextButtonHtml(`前往下一課：${nextGrammar ? escapeHtml(nextGrammar.title) : '已結業'}`);
   }
 
@@ -1697,23 +1701,27 @@ function renderStartView() {
   }));
 // 尋找此段監聽器
 // 🟢 修正：建立從發音課最後一章 (-125) 到文法課 #1 的跳轉橋樑
+// 🟢 修正 2：處理核心跳轉行為
 container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
   const latestState = getState();
-  const cid = Number(currentGrammar.id); // 取得目前的章節 ID
+  const cid = Number(currentGrammar.id); 
   
-  // 1. 先嘗試在目前的模式中找下一個 ID
   let nextId = nextGrammar ? Number(nextGrammar.id) : null;
 
-  // 🚀 關鍵邏輯：當目前章節是 -125 時，強制跳轉至文法課 1
+  // 🚀 強制跳轉：-125 直接接 1
   if (cid === -125) {
     nextId = 1;                 
-    uiState.learningMode = 'grammar'; // 切換至文法模式，確保 renderStartView 讀取正確資料庫
+    uiState.learningMode = 'grammar'; 
     console.log("偵測到發音課終點 (-125)，正在導向文法課 #1");
+  } 
+  // 🛑 強制結業：118 停止跳轉
+  else if (cid === 118) {
+    nextId = null;
   }
 
   if (nextId !== null) {
     if (latestState.mode === 'linear') {
-      // 2. 儲存進度指標
+      // 根據最新模式儲存進度
       if (uiState.learningMode === 'pronunciation') {
         const currentMax = Number(latestState.progress.lastLearnedPronunciationId || -200);
         if (nextId > currentMax) {
@@ -1724,7 +1732,6 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
           uiState.viewingId = nextId;
         }
       } else {
-        // 文法模式進度儲存
         const currentMax = Number(latestState.progress.lastLearnedGrammarId || 1);
         if (nextId > currentMax) {
           setLastLearnedGrammarId(nextId);
@@ -1739,7 +1746,7 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
     }
     renderStartView(); 
   } else {
-    // 若無後續課程則回到首頁
+    // 結業或無後續，回到首頁
     window.location.hash = '';
   }
 });
