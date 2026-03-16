@@ -2563,7 +2563,7 @@ function ensureAdvancedSettingsControls() {
     </div>
 
     <div style="margin-top: 15px; border-top: 1px dashed var(--danger); padding-top: 15px; display: flex; align-items: center; justify-content: space-between;">
-      <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;">🛠️ 開發者專區</label>
+      <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;"></label>
       <button type="button" class="btn secondary" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger); width: auto;" onclick="window.forceAppUpdate()">
         ☢️ 強制重啟並清除快取
       </button>
