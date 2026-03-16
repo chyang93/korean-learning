@@ -259,7 +259,7 @@ async function handleProgressSync(user) {
       // 2. 檢查所有學習與標記陣列長度
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
-        if ((p1[key] || []).length !== (cloud[key] || []).length) return true;
+        if ((p1[key] || []).length !== (p2[key] || []).length) return true;
       }
       
       // 3. 檢查測驗相關數量 (包含全能測試標記)
@@ -3348,8 +3348,38 @@ function renderTestBookmarkList() {
   `).join('');
 }
 
+function syncRemoveChatMarksFromVocabBank(marks) {
+  if (!Array.isArray(marks) || marks.length === 0) return;
+
+  const state = getState();
+  const bookmarkedSet = new Set(state.progress.bookmarkedVocab || []);
+  const processedIds = new Set();
+
+  marks.forEach((mark) => {
+    const cleanKo = String(mark?.ko || '').trim();
+    if (!cleanKo) return;
+
+    const vocabItem = vocabData.find((v) => String(v.ko || '').trim() === cleanKo);
+    if (!vocabItem) return;
+    if (processedIds.has(vocabItem.id)) return;
+
+    processedIds.add(vocabItem.id);
+    if (bookmarkedSet.has(vocabItem.id)) {
+      toggleBookmarkedVocab(vocabItem.id);
+    }
+  });
+}
+
 window.deleteSingleTestBookmark = function(id, type) {
   if (confirm('確定移除此標記？')) {
+    if (type === 'chat') {
+      const marks = getTestBookmarks('chat');
+      const target = marks.find((m) => Number(m.id) === Number(id));
+      if (target) {
+        syncRemoveChatMarksFromVocabBank([target]);
+      }
+    }
+
     deleteTestBookmark(id, type);
     void triggerCloudSave();
     renderTestBookmarkList();
@@ -3360,6 +3390,11 @@ document.getElementById('btn-clear-test-bookmarks')?.addEventListener('click', (
   if (confirm(`⚠️ 確定要刪除所有【${currentBookmarkType === 'vocab' ? '單字' : '全能'}測試】的標記紀錄嗎？一旦刪除無法復原！`)) {
     // 🟢 修正：清空標記時停止播放
     audioController.cancel();
+
+    if (currentBookmarkType === 'chat') {
+      syncRemoveChatMarksFromVocabBank(getTestBookmarks('chat'));
+    }
+
     clearTestBookmarks(currentBookmarkType);
     void triggerCloudSave();
     renderTestBookmarkList();
