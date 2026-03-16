@@ -226,6 +226,7 @@ async function triggerCloudSave() {
 
 // 優化後的 handleProgressSync
 // 🟢 修改 2：跨裝置衝突判斷與詳細差異清單
+// 🟢 修改：跨裝置衝突判斷，加入「測驗成績數量」的比對
 async function handleProgressSync(user) {
   const userRef = doc(db, 'users', user.uid);
   const docSnap = await getDoc(userRef);
@@ -234,37 +235,46 @@ async function handleProgressSync(user) {
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
 
-    // 比對陣列是否不同的工具
-    const isProgressDifferent = (p1, p2) => {
-      if (Number(p1?.currentLinearId || -200) !== Number(p2?.currentLinearId || -200)) return true;
+    // 🟢 擴充比對工具：同時接收完整的 local 與 cloud 資料
+    const isDataDifferent = (local, cloud) => {
+      const p1 = local.progress || {};
+      const p2 = cloud.progress || {};
+      
+      // 1. 檢查線性進度
+      if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
+      
+      // 2. 檢查各項學習與標記陣列
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
-        const arr1 = [...(p1?.[key] || [])].map(String).sort();
-        const arr2 = [...(p2?.[key] || [])].map(String).sort();
+        const arr1 = [...(p1[key] || [])].map(String).sort();
+        const arr2 = [...(p2[key] || [])].map(String).sort();
         if (arr1.length !== arr2.length) return true;
         for (let index = 0; index < arr1.length; index += 1) {
           if (arr1[index] !== arr2[index]) return true;
         }
       }
+      
+      // 3. 🟢 新增檢查：測驗紀錄數量是否不同
+      if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
+
       return false;
     };
 
-    if (isProgressDifferent(localState.progress || {}, cloudState.progress || {})) {
+    if (isDataDifferent(localState, cloudState)) {
       const autoSync = localState.settings?.autoSyncAcrossDevices;
 
       if (autoSync) {
-        // 若開啟自動同步：直接覆蓋本機 (無縫接軌)
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
         console.log('🔄 已開啟跨裝置自動同步，載入雲端最新進度');
         refreshCurrentRoute();
         return;
       }
 
-      // 🛑 若未開啟自動同步：整理並列出差異點
+      // 🛑 整理並列出差異點
       const pLocal = localState.progress || {};
       const pCloud = cloudState.progress || {};
-      
       const diffText = [];
+      
       if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) {
         diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId || -200} vs 雲端 ID ${pCloud.currentLinearId || -200}`);
       }
@@ -279,6 +289,13 @@ async function handleProgressSync(user) {
       }
       if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) {
         diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} 個 vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0} 個`);
+      }
+      
+      // 🟢 新增提示：顯示成績紀錄的差異
+      const localHistoryCount = localState.testHistory?.length || 0;
+      const cloudHistoryCount = cloudState.testHistory?.length || 0;
+      if (localHistoryCount !== cloudHistoryCount) {
+        diffText.push(`• 測驗紀錄：本機 ${localHistoryCount} 筆 vs 雲端 ${cloudHistoryCount} 筆`);
       }
       
       let diffString = diffText.length > 0 ? diffText.join('\n') : '• 其他學習狀態或細微標記不同';
@@ -300,7 +317,6 @@ async function handleProgressSync(user) {
       }
     }
   } else {
-    // 雲端完全沒資料，直接上傳初始化
     await setDoc(userRef, localState);
     console.log('🚀 偵測到新使用者，已初始化雲端存檔');
   }
@@ -1118,6 +1134,7 @@ function bindPronunciationEvents(container) {
     btn.addEventListener('click', () => {
       if (typeof toggleBookmarkedPronunciation === 'function') {
         toggleBookmarkedPronunciation(Number(btn.dataset.id));
+        void triggerCloudSave();
         renderPronunciationView();
       } else {
         console.error('API toggleBookmarkedPronunciation 尚未正確匯入！');
@@ -2212,6 +2229,7 @@ window.openTestHistory = function() {
 window.deleteSingleRecord = function(id) {
   if (confirm('確定要刪除這筆紀錄嗎？')) {
     deleteTestRecord(id);
+    void triggerCloudSave();
     renderTestHistoryList();
   }
 };
@@ -2465,6 +2483,7 @@ function renderGrammarView() {
   container.querySelectorAll('[data-action="toggle-grammar-bookmark"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       toggleBookmarkedGrammar(Number(btn.dataset.id));
+      void triggerCloudSave();
       renderGrammarView();
     });
   });
@@ -2565,7 +2584,7 @@ function ensureAdvancedSettingsControls() {
     <div style="margin-top: 15px; border-top: 1px dashed var(--danger); padding-top: 15px; display: flex; align-items: center; justify-content: space-between;">
       <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;"></label>
       <button type="button" class="btn secondary" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger); width: auto;" onclick="window.forceAppUpdate()">
-        ☢️ 強制重啟並清除快取
+        ☢️ 重新整理
       </button>
     </div>
   `;
@@ -3373,6 +3392,8 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
     icon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
     icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
   }
+
+  void triggerCloudSave();
 };
 
 const IS_DEBUG_MODE = false; // 🟢 上線前改為 false
