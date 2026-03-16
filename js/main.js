@@ -322,7 +322,6 @@ async function handleProgressSync(user) {
         const merged = mergeStateForConflict(localState, cloudState);
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
         await setDoc(userRef, merged);
-        showInfo('🚀 已將本機紀錄同步至雲端');
       }
     }
   } else {
