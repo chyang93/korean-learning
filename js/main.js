@@ -999,7 +999,7 @@ function renderPronunciationView() {
 
 function renderPronunciationItem(item, learned, bookmarked, state) {
   const currentId = state.progress.currentLinearId !== undefined ? Number(state.progress.currentLinearId) : -200;
-  const isLearned = Number(item.id) < currentId || learned.has(item.id);
+  const isLearned = learned.has(item.id);
   const isBookmarked = bookmarked.has(item.id);
   const isLocked = state.mode === 'linear' && Number(item.id) > currentId;
 
@@ -2238,7 +2238,7 @@ function renderTestHistoryList() {
     <div class="history-card">
       <div class="history-header" onclick="this.parentElement.classList.toggle('expanded')">
         <div class="history-info">
-          <div class="history-title">📖 ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
+          <div class="history-title"> ${escapeHtml(record.chapter || '未命名測驗')} (${escapeHtml(record.mode || '未知模式')})</div>
           <div class="history-meta">📅 ${escapeHtml(record.time || '')}</div>
         </div>
         <div class="history-score">${Number(record.score) || 0} / ${Number(record.total) || 0}</div>
@@ -2483,7 +2483,7 @@ function renderGrammarView() {
 
 function renderGrammarItem(item, learned, bookmarked, state) {
   const currentId = state.progress.currentLinearId !== undefined ? Number(state.progress.currentLinearId) : 1;
-  const isLearned = Number(item.id) < currentId || learned.has(item.id);
+  const isLearned = learned.has(item.id);
   const isBookmarked = bookmarked.has(item.id);
   const isLocked = state.mode === 'linear' && Number(item.id) > currentId;
   const firstExample = item.examples?.[0]?.ko || '';
