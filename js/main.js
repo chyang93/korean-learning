@@ -834,7 +834,7 @@ function renderHomeState() {
   const menu = document.querySelector('.main-menu');
   const homeBtn = document.getElementById('home-btn');
   updateUserUI(currentAuthUser);
-  
+
   if (menu) {
     menu.style.display = '';
   }
@@ -858,7 +858,7 @@ function renderHomeState() {
     existingProgressEl.remove();
   }
 
-  // 🟢 核心修正：動態生成文字，並插在 subtitle (系統已就緒) 下方
+  // 動態生成文字，並插在 subtitle 下方
   if (state.settings.showProgressOnHome !== false) {
     const currentId = state.progress.currentLinearId !== undefined ? Number(state.progress.currentLinearId) : -200;
     const allData = [...pronunciationData, ...grammarData].sort((a, b) => Number(a.id) - Number(b.id));
@@ -866,10 +866,9 @@ function renderHomeState() {
 
     if (currentCh) {
       const progressEl = document.createElement('div');
-      progressEl.id = 'home-progress-text'; // 🟢 只給 ID，樣式全部交給 CSS
+      progressEl.id = 'home-progress-text';
       progressEl.textContent = `目前進度：${currentCh.title}`;
 
-      // 尋找「v5.3-Codex 系統已就緒」的元素，並將進度文字插在它後面
       const subtitleEl = menu?.querySelector('.subtitle');
       if (subtitleEl) {
         subtitleEl.insertAdjacentElement('afterend', progressEl);
@@ -888,8 +887,7 @@ function renderHomeState() {
       } else {
         uiState.viewingId = null;
         const linearId = latestState.progress.currentLinearId !== undefined ? Number(latestState.progress.currentLinearId) : -200;
-        
-        // 🟢 修正：不再使用 >= 113，直接以正負號區分
+
         uiState.learningMode = (linearId < 0) ? 'pronunciation' : 'grammar';
         if (latestState.mode !== 'linear') {
           setMode('linear');
