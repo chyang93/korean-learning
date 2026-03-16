@@ -1687,13 +1687,25 @@ function renderStartView() {
     }
   }));
 // 尋找此段監聽器
+// 🟢 修正：建立從發音課最後一章 (-125) 到文法課 #1 的跳轉橋樑
 container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
   const latestState = getState();
-  const nextId = nextGrammar ? Number(nextGrammar.id) : null;
+  const cid = Number(currentGrammar.id); // 取得目前的章節 ID
+  
+  // 1. 先嘗試在目前的模式中找下一個 ID
+  let nextId = nextGrammar ? Number(nextGrammar.id) : null;
+
+  // 🚀 關鍵邏輯：當目前章節是 -125 時，強制跳轉至文法課 1
+  if (cid === -125) {
+    nextId = 1;                 
+    uiState.learningMode = 'grammar'; // 切換至文法模式，確保 renderStartView 讀取正確資料庫
+    console.log("偵測到發音課終點 (-125)，正在導向文法課 #1");
+  }
 
   if (nextId !== null) {
     if (latestState.mode === 'linear') {
-      if (isPron) {
+      // 2. 儲存進度指標
+      if (uiState.learningMode === 'pronunciation') {
         const currentMax = Number(latestState.progress.lastLearnedPronunciationId || -200);
         if (nextId > currentMax) {
           setLastLearnedPronunciationId(nextId);
@@ -1703,6 +1715,7 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
           uiState.viewingId = nextId;
         }
       } else {
+        // 文法模式進度儲存
         const currentMax = Number(latestState.progress.lastLearnedGrammarId || 1);
         if (nextId > currentMax) {
           setLastLearnedGrammarId(nextId);
@@ -1715,8 +1728,9 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
     } else {
       uiState.viewingId = nextId;
     }
-    renderStartView();
+    renderStartView(); 
   } else {
+    // 若無後續課程則回到首頁
     window.location.hash = '';
   }
 });
