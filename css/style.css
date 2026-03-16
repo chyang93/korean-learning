@@ -1261,35 +1261,36 @@ option {
 /* =========================================
    進度文字 - 完全置中且不破壞版面
    ========================================= */
+/* =========================================
+   進度文字 - 徹底解除電腦版限制與置中修正
+   ========================================= */
 #home-progress-text {
   display: block;
-  /* 確保寬度不會撐破螢幕，保留左右 5% 的安全邊距 */
-  width: 90% !important;
-  max-width: 1000px; /* 電腦版最大寬度限制，避免拉太長 */
-  margin: 12px auto; /* auto 會處理水平置中 */
-
-  text-align: center;
+  /* 🟢 移除 max-width 與 90%，改用 100% 確保以螢幕中心置中 */
+  width: 100% !important; 
+  margin: 12px 0 15px 0;    /* 左右邊距設為 0 */
+  
+  text-align: center;       /* 🟢 文字在全寬容器內置中 */
   font-size: 0.85rem;
+  font-weight: bold;
   color: var(--neon-cyan);
   line-height: 1.5;
 
-  /* 預設：電腦版不換行 */
-  white-space: nowrap;
-  overflow: visible;
-
-  /* 確保不會產生水平滾動條 */
-  box-sizing: border-box;
+  /* 🟢 保持完整顯示，不縮減、不變 ... */
+  white-space: nowrap;      /* 電腦版預設不換行 */
+  overflow: visible; 
+  text-overflow: clip;
+  
+  box-sizing: border-box; 
 }
 
-/* 📱 手機模式：當螢幕寬度小於 800px 時 */
+/* 📱 手機模式：寬度小於 800px 時才切換換行邏輯 */
 @media (max-width: 800px) {
   #home-progress-text {
-    /* 核心修正：手機版必須允許換行，否則標題會把整個網頁往右推 */
-    white-space: normal !important;
+    /* 手機版為了「完整顯示」，必須允許自動換行，否則會撐破網頁邊框 */
+    white-space: normal !important; 
     word-break: break-all;
-
-    /* 縮小一點點間距，讓視覺更緊湊 */
+    width: 94% !important;   /* 手機版保留一點邊距避免貼邊 */
     margin: 8px auto 12px;
-    font-size: 0.8rem;
   }
 }
