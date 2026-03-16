@@ -1146,8 +1146,9 @@ function bindPronunciationEvents(container) {
     btn.addEventListener('click', () => {
       if (typeof toggleLearnedPronunciation === 'function') {
         toggleLearnedPronunciation(Number(btn.dataset.id));
-        void triggerCloudSave();
         renderPronunciationView();
+        void triggerCloudSave();
+
       } else {
         console.error('API toggleLearnedPronunciation 尚未正確匯入！');
       }
@@ -1828,20 +1829,20 @@ function renderVocabularyView() {
     });
   });
 
-// 在 main.js 的 renderVocabularyView 內部
-container.querySelectorAll('[data-action="toggle-vocab-bookmark"]').forEach((btn) => {
-  btn.addEventListener('click', async () => {
-    toggleBookmarkedVocab(btn.dataset.id);
-    await triggerCloudSave(); // 🟢 補上這行，確保標記立即上傳雲端
-    renderVocabularyView();
+  // 🟢 1. 修正單字庫標記按鈕
+  container.querySelectorAll('[data-action="toggle-vocab-bookmark"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      toggleBookmarkedVocab(btn.dataset.id);
+      renderVocabularyView();
+      void triggerCloudSave();
+    });
   });
-});
 
   container.querySelectorAll('[data-action="toggle-vocab-learned"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       toggleLearnedVocab(btn.dataset.id);
-      await triggerCloudSave();
       renderVocabularyView();
+      void triggerCloudSave();
     });
   });
 }
@@ -2491,8 +2492,8 @@ function renderGrammarView() {
   container.querySelectorAll('[data-action="toggle-grammar-learned"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       toggleLearnedGrammar(Number(btn.dataset.id));
-      void triggerCloudSave();
       renderGrammarView();
+      void triggerCloudSave();
     });
   });
 
@@ -2570,7 +2571,7 @@ function ensureAdvancedSettingsControls() {
     
     <label class="checkbox-row">
       <input id="autoSyncAcrossDevices" type="checkbox" />
-      跨裝置自動同步 (開啟時，若雲端有新紀錄將直接覆蓋本機，不再詢問)
+      開啟時，若雲端有新紀錄將直接覆蓋本機，不再詢問
     </label>
 
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
@@ -2584,7 +2585,7 @@ function ensureAdvancedSettingsControls() {
     <div style="margin-top: 15px; border-top: 1px dashed var(--danger); padding-top: 15px; display: flex; align-items: center; justify-content: space-between;">
       <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;"></label>
       <button type="button" class="btn secondary" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger); width: auto;" onclick="window.forceAppUpdate()">
-        ☢️ 重新整理
+        ☢️ 重新整理同步雲端資料
       </button>
     </div>
   `;
