@@ -1245,14 +1245,11 @@ function renderStartView() {
   let nextBtnHtml = '';
   if (isPron && cid === -119) {
     nextBtnHtml = buildNextButtonHtml('前往文法課：#1');
-  } else if (!isPron && cid === 118) {
-    // 這裡加入了垂直佈局 (flex-direction: column) 以容納下方的文字
+  } else if (!isPron && !nextGrammar) {
     nextBtnHtml = `
       <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
-        <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 請聽完所有例句並自行跟讀一次後，即可前往下一課。</p>
-        <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>已結業 (回主畫面)</button>
-        <div style="color: var(--neon-cyan); font-size: 1rem; font-weight: bold; letter-spacing: 1px;">
-        </div>
+        <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 學習完畢！本章為最後一課。</p>
+        <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>🎉 已結業 (回主畫面)</button>
       </div>`;
   } else {
     nextBtnHtml = buildNextButtonHtml(`前往下一課：${nextGrammar ? escapeHtml(nextGrammar.title) : '已結業'}`);
@@ -1342,7 +1339,7 @@ function renderStartView() {
     }
 
     for (const chunk of chunks) {
-      const speakText = chunk.replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』]/g, '').trim();
+      const speakText = chunk.replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$]/g, '').trim();
       if (!speakText) continue;
       const userSettings = getState().settings;
 
@@ -2510,7 +2507,7 @@ function renderGrammarItem(item, learned, bookmarked, state) {
 
 function ensureAdvancedSettingsControls() {
   const form = document.querySelector('#settingsDialog form');
-  if (!form || form.querySelector('#toggleShowProgress')) return;
+  if (!form || form.querySelector('#advancedSettingsBlock')) return;
 
   const controlsBlock = document.createElement('div');
   controlsBlock.id = 'advancedSettingsBlock';
@@ -2526,6 +2523,14 @@ function ensureAdvancedSettingsControls() {
       <p class="message" style="font-size: 0.85rem; margin-top: 0;">
         選擇後，您的線性紀錄將直接跳至該章節。（開放模式下瀏覽不會影響此紀錄）
       </p>
+    </div>
+
+    <div style="margin-top: 20px; border-top: 2px solid var(--danger); padding-top: 15px;">
+      <label style="color: var(--danger); font-weight: bold; display: block; margin-bottom: 8px;">🛠️ 開發者專區</label>
+      <button type="button" class="btn secondary" style="width: 100%; border-color: var(--danger); color: var(--danger);" onclick="window.forceAppUpdate()">
+        ☢️ 強制重啟並清除快取
+      </button>
+      <p class="message" style="font-size: 0.8rem; margin-top: 5px;">當手機看不到 ID 116 以後的課程時使用。</p>
     </div>
   `;
 
@@ -3052,7 +3057,12 @@ window.playExampleSentence = function (text, btnElement) {
       return;
     }
 
-    const cleanText = normalizedText.replace(/^[AB][:：]\s*/, '').replace(/\s*B[:：]\s*/g, ' ').trim();
+    const cleanText = normalizedText
+      .replace(/^[AB][:：]\s*/, '')
+      .replace(/\s*B[:：]\s*/g, ' ')
+      .replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     await audioController.speak(cleanText || normalizedText);
   })();
 
@@ -3492,5 +3502,47 @@ async function startOfflineTest(chapterPart) {
 }
 
 window.startOfflineTest = startOfflineTest;
+
+// ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
+async function forceAppUpdate() {
+  if (confirm('☢️ 確定要執行核彈級更新嗎？\n\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+    try {
+      showInfo('正在執行深度清除...');
+
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+          await caches.delete(name);
+        }
+      }
+
+      let versionText = 'unknown';
+      try {
+        const manifestResp = await fetch('./manifest.json', { cache: 'no-store' });
+        if (manifestResp.ok) {
+          const manifest = await manifestResp.json();
+          versionText = String(manifest.version || manifest.appVersion || 'unknown');
+        }
+      } catch (manifestErr) {
+        console.warn('讀取版本資訊失敗:', manifestErr);
+      }
+
+      showInfo(`✅ 清除完成，版本 ${versionText}，正在重新載入最新版本...`);
+      setTimeout(() => window.location.reload(true), 900);
+    } catch (err) {
+      console.error('核彈更新失敗:', err);
+      alert('更新失敗，請手動清理系統快取。');
+    }
+  }
+}
+
+window.forceAppUpdate = forceAppUpdate;
 
 init();
