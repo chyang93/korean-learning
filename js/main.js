@@ -235,25 +235,19 @@ async function handleProgressSync(user) {
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
 
+    // 判斷資料是否不一致
     const isDataDifferent = (local, cloud) => {
       const p1 = local.progress || {};
       const p2 = cloud.progress || {};
-      
+
       if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
-      
+
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
-        const arr1 = [...(p1[key] || [])].map(String).sort();
-        const arr2 = [...(p2[key] || [])].map(String).sort();
-        if (arr1.length !== arr2.length) return true;
-        for (let index = 0; index < arr1.length; index += 1) {
-          if (arr1[index] !== arr2[index]) return true;
-        }
+        if ((p1[key] || []).length !== (p2[key] || []).length) return true;
       }
-      
+
       if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
-      if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
-      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true;
 
       return false;
     };
@@ -261,40 +255,48 @@ async function handleProgressSync(user) {
     if (isDataDifferent(localState, cloudState)) {
       const autoSync = localState.settings?.autoSyncAcrossDevices;
 
-      if (autoSync) {
-        // 若設定「以雲端為主」：直接下載雲端資料覆蓋本機
+      if (autoSync === true) {
+        // ✅ 勾選了：直接覆蓋本機，不再詢問
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
-        console.log('🔄 已開啟跨裝置自動同步，載入雲端最新進度');
+        console.log('🔄 跨裝置自動同步：已載入雲端最新資料');
         refreshCurrentRoute();
         return;
       }
 
-      // 🛑 拔除詢問視窗，改為無聲智能合併
-      
-      // 1. 智能合併學習進度與標記 (取兩邊的聯集)
-      localState.progress = mergeProgressArrays(localState.progress, cloudState.progress);
-      
-      // 2. 合併測驗歷史紀錄 (依據 ID 去除重複，並按時間排序)
-      const combinedHistory = [...(localState.testHistory || []), ...(cloudState.testHistory || [])];
-      localState.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values()).sort((a, b) => b.id - a.id);
-      
-      // 3. 合併單字與全能測驗標記 (依據韓文單字去除重複)
-      const combinedVocabMarks = [...(localState.testBookmarksVocab || []), ...(cloudState.testBookmarksVocab || [])];
-      localState.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map(item => [String(item.ko).trim(), item])).values()).sort((a, b) => b.id - a.id);
+      // 🛑 未勾選：跳出對話框詢問
+      const pLocal = localState.progress || {};
+      const pCloud = cloudState.progress || {};
+      const diffText = [`• 本機紀錄 vs 雲端紀錄 有所不同`];
 
-      const combinedChatMarks = [...(localState.testBookmarksChat || []), ...(cloudState.testBookmarksChat || [])];
-      localState.testBookmarksChat = Array.from(new Map(combinedChatMarks.map(item => [String(item.ko).trim(), item])).values()).sort((a, b) => b.id - a.id);
+      if (Number(pLocal.currentLinearId || -200) !== Number(pCloud.currentLinearId || -200)) {
+        diffText.push(`• 課程進度：本機 ${pLocal.currentLinearId || -200} / 雲端 ${pCloud.currentLinearId || -200}`);
+      }
 
-      // 4. 存回本地並直接上傳雲端，不跳出任何詢問視窗
-      localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(localState));
-      await setDoc(userRef, localState);
-      
-      showInfo('🚀 已自動將離線與最新紀錄合併並上傳至雲端');
-      refreshCurrentRoute();
+      const diffString = diffText.join('\n');
+
+      const choice = window.confirm(
+        `🔍 發現不同裝置的紀錄不一致！\n\n` +
+        `【差異摘要】\n${diffString}\n\n` +
+        `按「確定」：下載雲端進度（覆蓋此裝置）\n` +
+        `按「取消」：保留本機進度（將本機進度上傳並合併至雲端）`
+      );
+
+      if (choice) {
+        // 下載雲端
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
+        showInfo('✅ 已成功載入雲端資料');
+        refreshCurrentRoute();
+      } else {
+        // 保留本機：執行合併並強制上傳
+        const merged = mergeStateForConflict(localState, cloudState);
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
+        await setDoc(userRef, merged);
+        showInfo('🚀 已將本機紀錄同步至雲端');
+      }
     }
   } else {
+    // 雲端無資料，直接上傳初始化
     await setDoc(userRef, localState);
-    console.log('🚀 偵測到新使用者，已初始化雲端存檔');
   }
 }
 
@@ -1527,33 +1529,23 @@ function renderStartView() {
       await safeWait(700, runId);
       await safeSpeak('本章節完成。', runId);
 
-    const latestState = getState();
-    const currentChapterIdNum = Number(currentGrammar.id);
-    // 🟢 統一使用全域指標判定
-    const currentGlobalMax = Number(latestState.progress.currentLinearId ?? -200);
+      const latestState = getState();
+      const currentChapterIdNum = Number(currentGrammar.id);
+      const currentGlobalMax = Number(latestState.progress.currentLinearId ?? -200);
 
-    if (currentChapterIdNum > currentGlobalMax) {
-      if (isPron) {
-        setLastLearnedPronunciationId(currentChapterIdNum);
-      } else {
-        setLastLearnedGrammarId(currentChapterIdNum);
+      // 💡 僅更新「線性進度」指標以解鎖下一課，不自動 toggleLearned...
+      if (currentChapterIdNum > currentGlobalMax) {
+        if (isPron) {
+          setLastLearnedPronunciationId(currentChapterIdNum);
+        } else {
+          setLastLearnedGrammarId(currentChapterIdNum);
+        }
       }
-    }
-    // 不論是否更新線性紀錄，該課的「已學過」標籤都要打勾
-    if (isPron) {
-      updatePronunciationChapterProgress(currentGrammar.id, { chapterCompleted: true });
-      if (!latestState.progress.learnedPronunciation.includes(currentGrammar.id)) {
-        toggleLearnedPronunciation(currentGrammar.id);
-      }
-    } else {
-      updateChapterProgress(currentGrammar.id, { chapterCompleted: true });
-      if (!latestState.progress.learnedGrammar.includes(currentGrammar.id)) {
-        toggleLearnedGrammar(currentGrammar.id);
-      }
-    }
 
-    void triggerCloudSave();
-    btnPlay.textContent = '🔄 重新播放';
+      // 🛑 刪除原本在這裡自動呼叫的 toggleLearnedGrammar / toggleLearnedPronunciation
+
+      void triggerCloudSave(); // 靜默背景同步
+      btnPlay.textContent = '🔄 重新播放';
   } catch (e) {
     if (e !== 'ABORT') console.error(e);
     btnPlay.textContent = '▶️ 開始播放教學';
@@ -3389,10 +3381,28 @@ function renderError(message) {
 }
 
 function showInfo(text) {
+  // 原有設定頁面文字 (保留)
   const target = document.getElementById('settingsMessage');
-  if (target) {
-    target.textContent = text;
-  }
+  if (target) target.textContent = text;
+
+  // ✨ 新增：畫面中央浮動 Toast
+  const toast = document.createElement('div');
+  toast.className = 'offline-toast';
+  toast.style.bottom = '15%';
+  toast.style.background = 'rgba(40, 167, 69, 0.9)';
+  toast.style.color = '#fff';
+  toast.style.opacity = '1';
+  toast.style.zIndex = '99999';
+  toast.innerHTML = `<i class="fas fa-rocket"></i> <span>${text}</span>`;
+
+  document.body.appendChild(toast);
+
+  // 3秒後自動消失
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+    setTimeout(() => toast.remove(), 500);
+  }, 3000);
 }
 
 function ensureOnlineStatusBadge() {
@@ -3436,17 +3446,16 @@ async function handleTestResult(resultData) {
 
 async function flushOfflineResults() {
   const offlineResults = JSON.parse(localStorage.getItem(OFFLINE_RESULTS_KEY) || '[]');
-  if (!offlineResults.length) {
-    return;
-  }
+  if (!offlineResults.length) return;
 
-  console.log('🔄 偵測到網路回復，正在同步離線測試資料...');
+  console.log('🔄 偵測到網路回復，執行背景合併...');
   for (const record of offlineResults) {
     await uploadToFirebase(record);
   }
 
   localStorage.removeItem(OFFLINE_RESULTS_KEY);
-  showInfo('✅ 離線測試資料已完成同步');
+  // 顯示你要求的特定訊息
+  showInfo('🚀 已自動將離線與最新紀錄合併');
 }
 
 function initNetworkStatusBadge() {
