@@ -2107,18 +2107,36 @@ function moveToNextVocabQuestion() {
 
   // 當測驗結束時存入歷史紀錄
   if (session.currentIndex >= session.questions.length && !session.historySaved) {
-    
-    // 🟢 核心修正：直接抓取使用者在 UI 選取的章節設定
-    const isBookmarked = uiState.vocabTestSource === 'bookmarked';
-    const selectedChapters = uiState.vocabTestChapters?.trim();
 
+    // 🟢 1. 取得所有可用的 Part 總數 (排除 0)
+    const allAvailableParts = [...new Set(vocabData.map(v => Number(v.part)).filter(p => p > 0))];
+
+    // 🟢 2. 解析目前選取的 Part，並嚴格排除 0
+    const selectedParts = (uiState.vocabTestChapters || "")
+      .split(',')
+      .map(s => Number(s.trim()))
+      .filter(n => !isNaN(n) && n > 0)
+      .sort((a, b) => a - b);
+
+    const isBookmarked = uiState.vocabTestSource === 'bookmarked';
+    let chapterLabel = "";
+
+    // 🟢 3. 判斷是否為「全選」
+    // 如果沒選(代表全部) 或者 選取的數量等於或大於總章節數
+    if (selectedParts.length === 0 || selectedParts.length >= allAvailableParts.length) {
+      chapterLabel = "全體";
+    } else {
+      chapterLabel = selectedParts.join(', ');
+    }
+
+    // 🟢 4. 根據是否標記生成最終標題
     let finalTitle = "";
     if (isBookmarked) {
-      // 標記模式
-      finalTitle = `⭐ 標記測驗${selectedChapters ? ` (Part: ${selectedChapters})` : ' (全體)'}`;
+      finalTitle = `⭐ 標記測驗 (Part: ${chapterLabel})`;
     } else {
-      // 一般模式：如果有選章節就顯示章節，沒選就顯示綜合
-      finalTitle = selectedChapters ? `📚 章節測驗: ${selectedChapters}` : '📖 綜合測驗 (全部)';
+      finalTitle = (chapterLabel === "全體")
+        ? '📖 綜合測驗 (全部)'
+        : `📚 章節測驗: ${chapterLabel}`;
     }
 
     const modeLabel = uiState.vocabTestDirection === 'zh-to-ko' ? '中翻韓' : '韓翻中';
@@ -3067,7 +3085,12 @@ window.playExampleSentence = function (text, btnElement) {
 function renderTagsHtml(str, prefix = '') {
   if (!str || str.trim() === '') return `<span class="tag-placeholder">全部${prefix}章節</span>`;
   const parts = str.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0);
-  if (parts.length === 0) return `<span class="tag-placeholder">全部${prefix}章節</span>`;
+
+  const allAvailableCount = [...new Set(vocabData.map(v => Number(v.part)).filter(p => p > 0))].length;
+  if (parts.length === 0 || parts.length >= allAvailableCount) {
+    return `<span class="tag-chip" style="background: var(--neon-color); color: white;">全選</span>`;
+  }
+
   return parts.map((p) => `<span class="tag-chip">Part ${p}</span>`).join('');
 }
 
@@ -3090,7 +3113,7 @@ window.openChapterSelector = function(stateKey, dataType) {
 
   const currentStr = uiState[stateKey] || '';
   currentSelectingParts = new Set(
-    currentStr.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n))
+    currentStr.split(',').map((s) => Number(s.trim())).filter((n) => !Number.isNaN(n) && n > 0)
   );
 
   let pool = [];

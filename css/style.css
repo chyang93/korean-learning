@@ -1259,30 +1259,37 @@ option {
 /* style.css */
 
 /* =========================================
-   進度文字置中與完整顯示修正
+   進度文字 - 完全置中且不破壞版面
    ========================================= */
 #home-progress-text {
   display: block;
-  width: 100% !important;   /* 🟢 強制佔滿寬度，確保以螢幕為準置中 */
-  max-width: 95vw;          /* 避免在極小螢幕碰到邊緣 */
-  margin: 10px auto 15px;
-  text-align: center;       /* 🟢 真正的文字置中 */
+  /* 確保寬度不會撐破螢幕，保留左右 5% 的安全邊距 */
+  width: 90% !important;
+  max-width: 1000px; /* 電腦版最大寬度限制，避免拉太長 */
+  margin: 12px auto; /* auto 會處理水平置中 */
+
+  text-align: center;
   font-size: 0.85rem;
-  font-weight: bold;
   color: var(--neon-cyan);
-  letter-spacing: 0.5px;
-  
-  /* 確保不被截斷 */
-  white-space: nowrap;      /* 電腦版預設不換行 */
+  line-height: 1.5;
+
+  /* 預設：電腦版不換行 */
+  white-space: nowrap;
   overflow: visible;
-  text-overflow: clip;
+
+  /* 確保不會產生水平滾動條 */
+  box-sizing: border-box;
 }
 
-/* 手機版自動切換為換行模式，避免衝出螢幕 */
-@media (max-width: 768px) {
+/* 📱 手機模式：當螢幕寬度小於 800px 時 */
+@media (max-width: 800px) {
   #home-progress-text {
-    white-space: normal !important; /* 🟢 手機版自動換行以完整顯示 */
+    /* 核心修正：手機版必須允許換行，否則標題會把整個網頁往右推 */
+    white-space: normal !important;
     word-break: break-all;
-    line-height: 1.5;
+
+    /* 縮小一點點間距，讓視覺更緊湊 */
+    margin: 8px auto 12px;
+    font-size: 0.8rem;
   }
 }
