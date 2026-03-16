@@ -235,15 +235,12 @@ async function handleProgressSync(user) {
   if (docSnap.exists()) {
     const cloudState = docSnap.data();
 
-    // 🟢 擴充比對工具：同時接收完整的 local 與 cloud 資料
     const isDataDifferent = (local, cloud) => {
       const p1 = local.progress || {};
       const p2 = cloud.progress || {};
       
-      // 1. 檢查線性進度
       if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
       
-      // 2. 檢查各項學習與標記陣列
       const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
       for (const key of keys) {
         const arr1 = [...(p1[key] || [])].map(String).sort();
@@ -254,8 +251,9 @@ async function handleProgressSync(user) {
         }
       }
       
-      // 3. 🟢 新增檢查：測驗紀錄數量是否不同
       if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
+      if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
+      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true;
 
       return false;
     };
@@ -264,57 +262,35 @@ async function handleProgressSync(user) {
       const autoSync = localState.settings?.autoSyncAcrossDevices;
 
       if (autoSync) {
+        // 若設定「以雲端為主」：直接下載雲端資料覆蓋本機
         localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
         console.log('🔄 已開啟跨裝置自動同步，載入雲端最新進度');
         refreshCurrentRoute();
         return;
       }
 
-      // 🛑 整理並列出差異點
-      const pLocal = localState.progress || {};
-      const pCloud = cloudState.progress || {};
-      const diffText = [];
+      // 🛑 拔除詢問視窗，改為無聲智能合併
       
-      if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) {
-        diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId || -200} vs 雲端 ID ${pCloud.currentLinearId || -200}`);
-      }
-      if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) {
-        diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} 個 vs 雲端 ${pCloud.learnedVocab?.length || 0} 個`);
-      }
-      if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) {
-        diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} 個 vs 雲端 ${pCloud.bookmarkedVocab?.length || 0} 個`);
-      }
-      if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) {
-        diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} 個 vs 雲端 ${pCloud.learnedGrammar?.length || 0} 個`);
-      }
-      if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) {
-        diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} 個 vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0} 個`);
-      }
+      // 1. 智能合併學習進度與標記 (取兩邊的聯集)
+      localState.progress = mergeProgressArrays(localState.progress, cloudState.progress);
       
-      // 🟢 新增提示：顯示成績紀錄的差異
-      const localHistoryCount = localState.testHistory?.length || 0;
-      const cloudHistoryCount = cloudState.testHistory?.length || 0;
-      if (localHistoryCount !== cloudHistoryCount) {
-        diffText.push(`• 測驗紀錄：本機 ${localHistoryCount} 筆 vs 雲端 ${cloudHistoryCount} 筆`);
-      }
+      // 2. 合併測驗歷史紀錄 (依據 ID 去除重複，並按時間排序)
+      const combinedHistory = [...(localState.testHistory || []), ...(cloudState.testHistory || [])];
+      localState.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values()).sort((a, b) => b.id - a.id);
       
-      let diffString = diffText.length > 0 ? diffText.join('\n') : '• 其他學習狀態或細微標記不同';
+      // 3. 合併單字與全能測驗標記 (依據韓文單字去除重複)
+      const combinedVocabMarks = [...(localState.testBookmarksVocab || []), ...(cloudState.testBookmarksVocab || [])];
+      localState.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map(item => [String(item.ko).trim(), item])).values()).sort((a, b) => b.id - a.id);
 
-      const choice = window.confirm(
-        `🔍 發現不同裝置的紀錄不一致！\n\n` +
-        `【具體差異】\n${diffString}\n\n` +
-        `按「確定」：下載並使用【雲端紀錄】\n` +
-        `按「取消」：保留【本機紀錄】（會將本機紀錄上傳並覆蓋雲端）`
-      );
+      const combinedChatMarks = [...(localState.testBookmarksChat || []), ...(cloudState.testBookmarksChat || [])];
+      localState.testBookmarksChat = Array.from(new Map(combinedChatMarks.map(item => [String(item.ko).trim(), item])).values()).sort((a, b) => b.id - a.id);
 
-      if (choice) {
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
-        showInfo('✅ 已成功載入雲端進度');
-        refreshCurrentRoute();
-      } else {
-        await setDoc(userRef, localState);
-        showInfo('🚀 已保留本機紀錄，並同步覆蓋雲端');
-      }
+      // 4. 存回本地並直接上傳雲端，不跳出任何詢問視窗
+      localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(localState));
+      await setDoc(userRef, localState);
+      
+      showInfo('🚀 已自動將離線與最新紀錄合併並上傳至雲端');
+      refreshCurrentRoute();
     }
   } else {
     await setDoc(userRef, localState);
@@ -2258,6 +2234,8 @@ window.toggleHistoryBookmark = function(btn, vocabId, ko, zh) {
     icon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
     icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
   }
+
+  void triggerCloudSave();
 };
 
 function renderTestHistoryList() {
@@ -3325,6 +3303,7 @@ function renderTestBookmarkList() {
 window.deleteSingleTestBookmark = function(id, type) {
   if (confirm('確定移除此標記？')) {
     deleteTestBookmark(id, type);
+    void triggerCloudSave();
     renderTestBookmarkList();
   }
 };
@@ -3334,6 +3313,7 @@ document.getElementById('btn-clear-test-bookmarks')?.addEventListener('click', (
     // 🟢 修正：清空標記時停止播放
     audioController.cancel();
     clearTestBookmarks(currentBookmarkType);
+    void triggerCloudSave();
     renderTestBookmarkList();
   }
 });
@@ -3354,6 +3334,8 @@ window.toggleBookmarkCurrentMission = function(btn) {
     icon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
     icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
   }
+
+  void triggerCloudSave();
 };
 
 window.toggleBookmarkCurrentVocabTest = function(btn) {
