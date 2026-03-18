@@ -3102,8 +3102,21 @@ function getRelatedVocab(ids) {
   if (!Array.isArray(ids)) {
     return [];
   }
+
+  // Normalize legacy/new vocab ID formats (e.g. V0001, V001, 1) so related vocab always resolves.
+  const normalizeVocabId = (value) => {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!raw) return '';
+
+    const match = raw.match(/^V?0*(\d+)$/);
+    if (!match) return raw;
+    return `V${match[1]}`;
+  };
+
+  const vocabById = new Map((vocabData || []).map((v) => [normalizeVocabId(v.id), v]));
+
   return ids
-    .map((id) => vocabData.find((v) => v.id === id))
+    .map((id) => vocabById.get(normalizeVocabId(id)))
     .filter(Boolean)
 }
 
