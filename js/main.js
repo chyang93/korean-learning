@@ -52,11 +52,28 @@ import {
 } from './firebase-config.js';
 import { OfflineQuizEngine } from './quizEngine.js';
 
+let swRegistrationRef = null;
+let isReloadingForSwUpdate = false;
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (isReloadingForSwUpdate) return;
+      isReloadingForSwUpdate = true;
+      window.location.reload();
+    });
+
     window.addEventListener('load', async () => {
       try {
-        const registration = await navigator.serviceWorker.register('./sw.js');
+        const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+        swRegistrationRef = registration;
+
+        // Check once on load to reduce stale-update windows.
+        await registration.update();
+
+        if (registration.waiting) {
+          showUpdateToast();
+        }
 
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
@@ -88,9 +105,50 @@ function showUpdateToast() {
   toast.className = 'update-toast';
   toast.innerHTML = `
     <span>🚀 發現新的課文內容！</span>
-    <button onclick="window.location.reload()">立即更新</button>
+    <button type="button" id="applySwUpdateBtn">立即更新</button>
   `;
   document.body.appendChild(toast);
+
+  const applyBtn = toast.querySelector('#applySwUpdateBtn');
+  applyBtn?.addEventListener('click', () => {
+    void applyServiceWorkerUpdate();
+  });
+}
+
+async function applyServiceWorkerUpdate() {
+  try {
+    const registration = swRegistrationRef || await navigator.serviceWorker.getRegistration('./sw.js');
+    if (!registration) {
+      window.location.reload();
+      return;
+    }
+
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      return;
+    }
+
+    if (registration.installing) {
+      const worker = registration.installing;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+      return;
+    }
+
+    await registration.update();
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      return;
+    }
+
+    window.location.reload();
+  } catch (error) {
+    console.error('立即更新流程失敗，改用直接重載：', error);
+    window.location.reload();
+  }
 }
 
 registerServiceWorker();

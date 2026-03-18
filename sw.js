@@ -1,7 +1,7 @@
 // sw.js
 
 // 1. 提升版本號至 v68 (確保瀏覽器重新抓取)
-const CACHE_NAME = 'korean-app-v86'; 
+const CACHE_NAME = 'korean-app-v87'; 
 
 const ASSETS_TO_CACHE = [
   './',
@@ -38,6 +38,13 @@ self.addEventListener('install', (event) => {
       );
     }).then(() => self.skipWaiting())
   );
+});
+
+// Allow the page to explicitly activate a newly installed worker.
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // 3. 啟動階段：清理舊快取
