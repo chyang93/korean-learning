@@ -1,6 +1,7 @@
 import { loadGrammar, loadIrregularData, loadPronunciation, loadVocabulary } from './dataLoader.js';
 import {
   getState,
+  patchProgress,
   patchSettings,
   setMode,
   toggleBookmarkedGrammar,
@@ -160,7 +161,7 @@ function mergeProgressArrays(localProgress = {}, cloudProgress = {}) {
   merged.learnedVocab = uniqueArray([...(cloudProgress.learnedVocab || []), ...(localProgress.learnedVocab || [])]);
   merged.learnedGrammar = uniqueArray([...(cloudProgress.learnedGrammar || []), ...(localProgress.learnedGrammar || [])]);
   merged.learnedPronunciation = uniqueArray([...(cloudProgress.learnedPronunciation || []), ...(localProgress.learnedPronunciation || [])]);
-  merged.bookmarkedVocab = uniqueArray([...(cloudProgress.bookmarkedVocab || []), ...(localProgress.bookmarkedVocab || [])]);
+  merged.bookmarkedVocab = uniqueArray([...(cloudProgress.bookmarkedVocab || []), ...(localProgress.bookmarkedVocab || [])].map((id) => String(id)));
   merged.bookmarkedGrammar = uniqueArray([...(cloudProgress.bookmarkedGrammar || []), ...(localProgress.bookmarkedGrammar || [])]);
   merged.bookmarkedPronunciation = uniqueArray([...(cloudProgress.bookmarkedPronunciation || []), ...(localProgress.bookmarkedPronunciation || [])]);
 
@@ -178,11 +179,11 @@ function mergeStateForConflict(localState = {}, cloudState = {}) {
   merged.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values()).sort((a, b) => b.id - a.id);
 
   const combinedVocabMarks = [...(localState.testBookmarksVocab || []), ...(cloudState.testBookmarksVocab || [])];
-  merged.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map(item => [String(item.ko).trim(), item])).values());
+  merged.testBookmarksVocab = Array.from(new Map(combinedVocabMarks.map((item) => [normalizeBookmarkKo(item?.ko), item])).values());
 
   // 🟢 新增：合併全能測試標記
   const combinedChatMarks = [...(localState.testBookmarksChat || []), ...(cloudState.testBookmarksChat || [])];
-  merged.testBookmarksChat = Array.from(new Map(combinedChatMarks.map(item => [String(item.ko).trim(), item])).values());
+  merged.testBookmarksChat = Array.from(new Map(combinedChatMarks.map((item) => [normalizeBookmarkKo(item?.ko), item])).values());
 
   return merged;
 }
@@ -273,9 +274,11 @@ async function handleProgressSync(user) {
     if (isDataDifferent(localState, cloudState)) {
       const autoSync = localState.settings?.autoSyncAcrossDevices;
       if (autoSync === true) {
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
+        const merged = mergeStateForConflict(localState, cloudState);
+        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
+        await setDoc(userRef, merged);
         refreshCurrentRoute();
-        showInfo('✅ 已成功載入雲端最新資料');
+        showInfo('✅ 已自動合併本機與雲端資料');
         return;
       }
 
@@ -561,6 +564,10 @@ async function init() {
   if (storedSyncBookmark !== null) {
     patchSettings({ syncTestVocabBookmark: storedSyncBookmark === 'true' });
   }
+  const storedSyncVocabTestBookmark = localStorage.getItem('korean_syncVocabTestBookmark');
+  if (storedSyncVocabTestBookmark !== null) {
+    patchSettings({ syncVocabTestBookmark: storedSyncVocabTestBookmark === 'true' });
+  }
   const storedAutoSync = localStorage.getItem('korean_autoSyncAcrossDevices');
   if (storedAutoSync !== null) {
     patchSettings({ autoSyncAcrossDevices: storedAutoSync === 'true' });
@@ -670,6 +677,7 @@ function bindTopControls() {
     document.getElementById('liaisonContrast').checked = settings.liaisonContrast === true;
     document.getElementById('speakDialogueSpeaker').checked = settings.speakDialogueSpeaker === true;
     document.getElementById('syncTestVocabBookmark').checked = settings.syncTestVocabBookmark === true;
+    document.getElementById('syncVocabTestBookmark').checked = settings.syncVocabTestBookmark === true;
     document.getElementById('settingsMessage').textContent = '設定將儲存於您的瀏覽器。';
     dialog.showModal();
   });
@@ -696,11 +704,13 @@ function bindSettingsDialog() {
   const saveBtn = document.getElementById('saveSettingsBtn') || document.getElementById('saveApiKeyBtn');
   const hintCheckbox = document.getElementById('showPronunciationHints');
   const contrastCheckbox = document.getElementById('liaisonContrast');
+  const syncChatCheckbox = document.getElementById('syncTestVocabBookmark');
+  const syncVocabCheckbox = document.getElementById('syncVocabTestBookmark');
   const dialog = document.getElementById('settingsDialog');
   const clearBtn = document.getElementById('clearMemoryBtn');
   ensureAdvancedSettingsControls();
 
-  // 1. 即時預覽
+  // 保留即時預覽：僅影響畫面，不寫入 state
   hintCheckbox?.addEventListener('change', (e) => {
     document.body.classList.toggle('liaison-hints-enabled', e.target.checked);
   });
@@ -708,9 +718,13 @@ function bindSettingsDialog() {
     document.body.classList.toggle('liaison-contrast-active', e.target.checked);
   });
 
-  // 2. 防呆復原
+  // 防呆復原：若未儲存直接關閉，還原到已儲存狀態
   dialog?.addEventListener('close', () => {
     const s = getState().settings;
+    if (hintCheckbox) hintCheckbox.checked = s.showPronunciationHints !== false;
+    if (contrastCheckbox) contrastCheckbox.checked = s.liaisonContrast === true;
+    if (syncChatCheckbox) syncChatCheckbox.checked = s.syncTestVocabBookmark === true;
+    if (syncVocabCheckbox) syncVocabCheckbox.checked = s.syncVocabTestBookmark === true;
     document.body.classList.toggle('liaison-hints-enabled', s.showPronunciationHints !== false);
     document.body.classList.toggle('liaison-contrast-active', s.liaisonContrast === true);
   });
@@ -741,6 +755,7 @@ function bindSettingsDialog() {
         localStorage.removeItem('korean_autoPlayCorrect');
         localStorage.removeItem('korean_speakDialogueSpeaker');
         localStorage.removeItem('korean_syncTestVocabBookmark');
+        localStorage.removeItem('korean_syncVocabTestBookmark');
 
         alert('記憶已徹底清除（含雲端），系統將重新載入。');
         window.location.hash = '';
@@ -751,13 +766,15 @@ function bindSettingsDialog() {
 
   if (!saveBtn) return;
 
-  // 3. 儲存設定 (維持原樣)
+  // 儲存設定
   saveBtn.addEventListener('click', () => {
+    const prevSettings = getState().settings;
     const showPronunciationHints = hintCheckbox.checked;
     const liaisonContrast = contrastCheckbox.checked;
     const autoPlayCorrect = document.getElementById('autoPlayCorrect').checked;
     const speakDialogueSpeaker = document.getElementById('speakDialogueSpeaker').checked;
     const syncTestVocabBookmark = document.getElementById('syncTestVocabBookmark')?.checked || false;
+    const syncVocabTestBookmark = document.getElementById('syncVocabTestBookmark')?.checked || false;
     const toggleShowProgress = document.getElementById('toggleShowProgress');
     const showProgressOnHome = toggleShowProgress ? toggleShowProgress.checked : true;
     
@@ -766,7 +783,34 @@ function bindSettingsDialog() {
     const autoSyncAcrossDevices = autoSyncEl ? autoSyncEl.checked : false;
 
     // 🟢 2. 將 autoSyncAcrossDevices 加入設定更新
-    patchSettings({ showPronunciationHints, liaisonContrast, autoPlayCorrect, speakDialogueSpeaker, showProgressOnHome, syncTestVocabBookmark, autoSyncAcrossDevices });
+    patchSettings({ showPronunciationHints, liaisonContrast, autoPlayCorrect, speakDialogueSpeaker, showProgressOnHome, syncTestVocabBookmark, syncVocabTestBookmark, autoSyncAcrossDevices });
+
+    // 同步開關由「開 -> 關」時，移除對應來源在單字庫中的同步標記
+    const disabledChatSync = prevSettings.syncTestVocabBookmark === true && syncTestVocabBookmark === false;
+    const disabledVocabSync = prevSettings.syncVocabTestBookmark === true && syncVocabTestBookmark === false;
+    if (disabledChatSync || disabledVocabSync) {
+      const idsToRemove = new Set();
+
+      if (disabledChatSync) {
+        collectSyncedVocabIdsByType('chat').forEach((id) => idsToRemove.add(id));
+      }
+      if (disabledVocabSync) {
+        collectSyncedVocabIdsByType('vocab').forEach((id) => idsToRemove.add(id));
+      }
+
+      if (syncTestVocabBookmark === true) {
+        collectSyncedVocabIdsByType('chat').forEach((id) => idsToRemove.delete(id));
+      }
+      if (syncVocabTestBookmark === true) {
+        collectSyncedVocabIdsByType('vocab').forEach((id) => idsToRemove.delete(id));
+      }
+
+      if (idsToRemove.size > 0) {
+        const latestState = getState();
+        const nextBookmarked = (latestState.progress.bookmarkedVocab || []).filter((id) => !idsToRemove.has(String(id)));
+        patchProgress({ bookmarkedVocab: nextBookmarked });
+      }
+    }
 
     const jumpSelect = document.getElementById('jumpLevelSelect');
     if (jumpSelect && jumpSelect.value !== 'none') {
@@ -792,6 +836,7 @@ function bindSettingsDialog() {
     localStorage.setItem('korean_autoPlayCorrect', String(autoPlayCorrect));
     localStorage.setItem('korean_speakDialogueSpeaker', String(speakDialogueSpeaker));
     localStorage.setItem('korean_syncTestVocabBookmark', String(syncTestVocabBookmark));
+    localStorage.setItem('korean_syncVocabTestBookmark', String(syncVocabTestBookmark));
     // 🟢 3. 儲存跨裝置同步設定到本地
     localStorage.setItem('korean_autoSyncAcrossDevices', String(autoSyncAcrossDevices));
 
@@ -1261,14 +1306,14 @@ function renderStartView() {
 
     // 內建小函式：格式化單行對話
     const formatDialogueRow = (ko, zh, speaker) => `
-      <div style="display: flex; align-items: baseline; justify-content: center; gap: 15px; margin-bottom: 20px;">
-        <div style="font-size: 2.2rem; font-weight: bold; color: var(--neon-color); min-width: 45px; text-align: right;">${speaker}:</div>
-        <div class="kor" style="font-size: 1.85rem; font-weight: bold; color: var(--text-main);">${maybeAnnotateKorean(ko.replace(/^[AB][:：]\s*/, ''))}</div>
-        <div class="zh" style="font-size: 1.25rem; color: var(--text-muted); margin-left: 10px;">${escapeHtml((zh || '').replace(/^[AB][:：]\s*/, ''))}</div>
+      <div class="lesson-dialogue-row">
+        <div class="lesson-dialogue-speaker">${speaker}:</div>
+        <div class="kor lesson-dialogue-ko">${maybeAnnotateKorean(ko.replace(/^[AB][:：]\s*/, ''))}</div>
+        <div class="zh lesson-dialogue-zh">${escapeHtml((zh || '').replace(/^[AB][:：]\s*/, ''))}</div>
       </div>`;
 
     stage1Content = `
-      <div style="padding: 20px 0;">
+      <div class="lesson-dialogue-block">
         ${linesA.map((ko, i) => formatDialogueRow(ko, linesAzh[i], 'A')).join('')}
         ${linesB.map((ko, i) => formatDialogueRow(ko, linesBzh[i], 'B')).join('')}
         <div class="vocab-note-bar">
@@ -1277,11 +1322,12 @@ function renderStartView() {
       </div>`;
   }
 
-  const buildNextButtonHtml = (label) => `
+  const buildNextButtonHtml = (prefix, title) => `
     <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
       <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 請聽完所有例句並自行跟讀一次後，即可前往下一課。</p>
-      <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>
-        ${label}
+      <button id="nextLessonBtn" class="btn primary next-lesson-btn" disabled>
+        <span class="next-lesson-prefix">${prefix}</span>
+        <span class="next-lesson-title">${title}</span>
       </button>
     </div>`;
 
@@ -1290,17 +1336,17 @@ function renderStartView() {
   let nextBtnHtml = '';
   if (isPron && cid === -125) {
     // 當前是發音最後一課
-    nextBtnHtml = buildNextButtonHtml('前往文法課：#1');
+    nextBtnHtml = buildNextButtonHtml('前往文法課：', '#1');
   } else if (!isPron && (cid === 118 || !nextGrammar)) {
     // 當前是文法第 118 課，或是資料庫已到盡頭
     nextBtnHtml = `
       <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
         <p id="completionHint" style="color: var(--text-muted); font-size: 0.9rem;">🎧 學習完畢！恭喜您完成所有課程。</p>
-        <button id="nextLessonBtn" class="btn primary" style="font-size: 1.2rem; padding: 15px 30px;" disabled>🎉 已結業 (回主畫面)</button>
+        <button id="nextLessonBtn" class="btn primary next-lesson-btn" disabled>🎉 已結業 (回主畫面)</button>
       </div>`;
   } else {
     // 一般情況
-    nextBtnHtml = buildNextButtonHtml(`前往下一課：${nextGrammar ? escapeHtml(nextGrammar.title) : '已結業'}`);
+    nextBtnHtml = buildNextButtonHtml('前往下一課：', `${nextGrammar ? escapeHtml(nextGrammar.title) : '已結業'}`);
   }
 
   container.innerHTML = `
@@ -1311,7 +1357,7 @@ function renderStartView() {
     </div>
     <div class="lesson-header" style="text-align: center; margin: 20px 0;">
       <div class="lesson-part-label" style="color: var(--neon-cyan); font-weight: bold; font-size: 1.2rem; letter-spacing: 2px;">Part : ${currentGrammar.part || 0}</div>
-      <h1 class="lesson-main-title" style="color: var(--neon-color); font-size: 2.5rem; margin-top: 5px;">${escapeHtml(currentGrammar.title)}</h1>
+      <h1 class="lesson-main-title" style="color: var(--neon-color); margin-top: 5px;">${escapeHtml(currentGrammar.title)}</h1>
     </div>
     <div class="lesson-content-area" id="lessonGrid">
       <div id="stage-dialogue" class="stage-card layout-full">${stage1Content}</div>
@@ -1753,22 +1799,43 @@ container.querySelector('#nextLessonBtn')?.addEventListener('click', () => {
 
 }
 
+function normalizeBookmarkKo(value) {
+  return String(value || '').replace(/^[AB][:：]\s*/, '').trim();
+}
+
+function findVocabIdByKo(value) {
+  const cleanKo = normalizeBookmarkKo(value);
+  if (!cleanKo) return null;
+  const vocabItem = vocabData.find((item) => normalizeBookmarkKo(item.ko) === cleanKo);
+  return vocabItem ? String(vocabItem.id) : null;
+}
+
+function collectSyncedVocabIdsByType(type) {
+  const synced = new Set();
+  const marks = getTestBookmarks(type);
+  marks.forEach((mark) => {
+    const id = findVocabIdByKo(mark?.ko);
+    if (id !== null) synced.add(id);
+  });
+  return synced;
+}
+
+function getBookmarkedVocabIdSet(state = getState()) {
+  const ids = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+  if (state.settings.syncVocabTestBookmark === true) {
+    collectSyncedVocabIdsByType('vocab').forEach((id) => ids.add(id));
+  }
+  if (state.settings.syncTestVocabBookmark === true) {
+    collectSyncedVocabIdsByType('chat').forEach((id) => ids.add(id));
+  }
+  return ids;
+}
+
 function renderVocabularyView() {
   const container = document.getElementById('view-vocabulary');
   const state = getState();
   const learned = new Set(state.progress.learnedVocab);
-  // 🟢 核心修正：實作動態顯示。取消勾選同步時，全能測試的標記會立即從此集合消失
-  const bookmarked = new Set(state.progress.bookmarkedVocab);
-
-  if (state.settings.syncTestVocabBookmark === true) {
-    const chatMarks = getTestBookmarks('chat');
-    chatMarks.forEach((m) => {
-      // 過濾標籤後尋找對應的單字 ID
-      const cleanKo = String(m.ko).replace(/^[AB][:：]\s*/, '').trim();
-      const v = vocabData.find((vd) => String(vd.ko).trim() === cleanKo);
-      if (v) bookmarked.add(v.id);
-    });
-  }
+  const bookmarked = getBookmarkedVocabIdSet(state);
   const maxVocabPart = Math.max(1, ...vocabData.map((item) => Number(item.part) || 0));
 
   const filteredByPart =
@@ -1779,7 +1846,7 @@ function renderVocabularyView() {
   const list = filteredByPart.filter((item) => {
     if (uiState.vocabFilter === 'learned') return learned.has(item.id);
     if (uiState.vocabFilter === 'unlearned') return !learned.has(item.id);
-    if (uiState.vocabFilter === 'bookmarked') return bookmarked.has(item.id);
+    if (uiState.vocabFilter === 'bookmarked') return bookmarked.has(String(item.id));
     return true;
   });
 
@@ -1856,7 +1923,27 @@ function renderVocabularyView() {
   // 🟢 1. 修正單字庫標記按鈕
   container.querySelectorAll('[data-action="toggle-vocab-bookmark"]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      toggleBookmarkedVocab(btn.dataset.id);
+      const stateNow = getState();
+      const targetId = String(btn.dataset.id || '');
+      const effectiveBookmarked = getBookmarkedVocabIdSet(stateNow);
+      const wasBookmarked = effectiveBookmarked.has(targetId);
+
+      if (wasBookmarked) {
+        const ownBookmarked = new Set((stateNow.progress.bookmarkedVocab || []).map((id) => String(id)));
+        if (ownBookmarked.has(targetId)) {
+          toggleBookmarkedVocab(btn.dataset.id);
+        }
+
+        // 從單字庫取消標記時，同步清除兩邊測驗標記紀錄
+        const vocabItem = vocabData.find((item) => String(item.id) === targetId);
+        if (vocabItem) {
+          toggleTestBookmarkItem(vocabItem.ko || '', vocabItem.zh || '', 'vocab', false);
+          toggleTestBookmarkItem(vocabItem.ko || '', vocabItem.zh || '', 'chat', false);
+        }
+      } else {
+        toggleBookmarkedVocab(btn.dataset.id);
+      }
+
       renderVocabularyView();
       void triggerCloudSave();
     });
@@ -1897,7 +1984,7 @@ function initVocabInfiniteScroll(hasMore) {
 
 function renderVocabItem(item, learned, bookmarked) {
   const isLearned = learned.has(item.id);
-  const isBookmarked = bookmarked.has(item.id);
+  const isBookmarked = bookmarked.has(String(item.id));
   const ko = maybeAnnotateKorean(item.ko || '');
   const zh = item.zh || item.meaning || '暫無解釋'; // 🟢 雙重防呆
   
@@ -1953,23 +2040,23 @@ function renderVocabTestView() {
         <button class="btn ${uiState.vocabTestDirection === 'zh-to-ko' ? '' : 'secondary'}" data-vdir="zh-to-ko">中 ➔ 韓</button>
       </div>
 
-      <div class="row" style="margin-bottom: 15px; align-items: flex-start;">
-        <div style="flex: 1;">
+      <div class="row chapter-filter-row" style="margin-bottom: 15px; align-items: flex-start;">
+        <div class="chapter-filter-group" style="flex: 1;">
           <label style="display: block; margin-bottom: 5px;">來源：</label>
           <select id="testSourceSelect" style="width: 100%;">
             <option value="all" ${uiState.vocabTestSource === 'all' ? 'selected' : ''}>全部單字</option>
             <option value="bookmarked" ${uiState.vocabTestSource === 'bookmarked' ? 'selected' : ''}>僅標記單字 (⭐)</option>
           </select>
         </div>
-        <div style="flex: 2;">
+        <div class="chapter-filter-group" style="flex: 2;">
           <label style="display: block; margin-bottom: 5px;">章節限定：</label>
-          <div class="tag-input-container" onclick="openChapterSelector('vocabTestChapters', 'vocab')">
+          <div class="tag-input-container chapter-tag-container" onclick="openChapterSelector('vocabTestChapters', 'vocab')">
             <div class="tags-wrapper">${renderTagsHtml(uiState.vocabTestChapters)}</div>
             <button class="tag-add-btn"><i class="fas fa-plus"></i></button>
           </div>
           <input id="testChaptersInput" type="hidden" value="${escapeAttr(uiState.vocabTestChapters || '')}" />
         </div>
-        <div style="flex: 1;">
+        <div class="chapter-filter-group" style="flex: 1;">
           <label style="display: block; margin-bottom: 5px;">題數：</label>
           <input id="testCountInput" type="number" min="1" max="${maxQuestions}" value="${uiState.vocabTestCount}" style="width:100%;" />
         </div>
@@ -2046,9 +2133,10 @@ function renderVocabTestBody(session, isFinished) {
   const promptText = isKoToZh ? maybeAnnotateKorean(q.prompt) : escapeHtml(q.prompt);
   const hintExampleKo = maybeAnnotateKorean(q.example.ko || '');
   const state = getState();
-  let isLit = getTestBookmarks('vocab').some((item) => String(item.ko).trim() === String(q.ko || '').trim());
-  if (!isLit && state.settings.syncTestVocabBookmark) {
-    if (state.progress.bookmarkedVocab.includes(q.id)) isLit = true;
+  let isLit = getTestBookmarks('vocab').some((item) => normalizeBookmarkKo(item?.ko) === normalizeBookmarkKo(q.ko));
+  if (!isLit && state.settings.syncVocabTestBookmark) {
+    const mainBookmarked = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+    if (mainBookmarked.has(String(q.id))) isLit = true;
   }
 
   const markBtnHtml = `<button class="icon-btn" style="margin-left: 10px; color: var(--text-muted); background:transparent; border:none;" onclick="toggleBookmarkCurrentVocabTest(this)"><i class="${isLit ? 'fas' : 'far'} fa-star" style="${isLit ? 'color: #ffc107; text-shadow: 0 0 8px rgba(255, 193, 7, 0.5);' : ''}"></i></button>`;
@@ -2232,6 +2320,7 @@ function moveToNextVocabQuestion() {
 
 function bindTestHistoryDialog() {
   const clearAllBtn = document.getElementById('btn-clear-all-history');
+  const dialog = document.getElementById('testHistoryDialog');
   if (clearAllBtn && !clearAllBtn.dataset.bound) {
     clearAllBtn.addEventListener('click', () => {
       if (confirm('⚠️ 警告：一旦刪除無法復原！確定要清空所有測驗紀錄嗎？')) {
@@ -2240,6 +2329,13 @@ function bindTestHistoryDialog() {
       }
     });
     clearAllBtn.dataset.bound = '1';
+  }
+
+  if (dialog && !dialog.dataset.cancelGuardBound) {
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+    });
+    dialog.dataset.cancelGuardBound = '1';
   }
 }
 
@@ -2259,15 +2355,20 @@ window.deleteSingleRecord = function(id) {
   }
 };
 
-window.toggleHistoryBookmark = function(btn, vocabId, ko, zh) {
+window.toggleHistoryBookmark = function(event, btn, vocabId, ko, zh) {
+  event?.preventDefault();
+  event?.stopPropagation();
   const parsedId = Number(vocabId);
   const targetId = Number.isNaN(parsedId) ? vocabId : parsedId;
   const state = getState();
   const icon = btn?.querySelector('i');
-  const isTurningOn = icon ? icon.classList.contains('far') : true;
+  const normalizedKo = normalizeBookmarkKo(ko);
+  const isCurrentlyMarked = getTestBookmarks('vocab').some((item) => normalizeBookmarkKo(item.ko) === normalizedKo);
+  const isTurningOn = !isCurrentlyMarked;
 
-  if (state.settings.syncTestVocabBookmark === true) {
-    const isMainBookmarked = state.progress.bookmarkedVocab.includes(targetId);
+  if (state.settings.syncVocabTestBookmark === true) {
+    const bookmarkedSet = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+    const isMainBookmarked = bookmarkedSet.has(String(targetId));
     if (isTurningOn && !isMainBookmarked) toggleBookmarkedVocab(targetId);
     else if (!isTurningOn && isMainBookmarked) toggleBookmarkedVocab(targetId);
 
@@ -2281,6 +2382,19 @@ window.toggleHistoryBookmark = function(btn, vocabId, ko, zh) {
     icon.classList.toggle('far', !isTurningOn);
     icon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
     icon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
+  }
+
+  const historyContainer = document.getElementById('testHistoryContent');
+  if (historyContainer) {
+    historyContainer.querySelectorAll('.bookmark-btn').forEach((bookmarkBtn) => {
+      if ((bookmarkBtn.dataset.ko || '') !== normalizedKo) return;
+      const targetIcon = bookmarkBtn.querySelector('i');
+      if (!targetIcon) return;
+      targetIcon.classList.toggle('fas', isTurningOn);
+      targetIcon.classList.toggle('far', !isTurningOn);
+      targetIcon.style.color = isTurningOn ? '#ffc107' : 'var(--text-muted)';
+      targetIcon.style.textShadow = isTurningOn ? '0 0 8px rgba(255, 193, 7, 0.5)' : 'none';
+    });
   }
 
   void triggerCloudSave();
@@ -2304,7 +2418,9 @@ function renderTestHistoryList() {
 
   const visibleHistory = history.slice(0, uiState.historyDisplayLimit);
   const hasMore = history.length > uiState.historyDisplayLimit;
-  const bookmarkedSet = new Set(state.progress.bookmarkedVocab || []);
+  const vocabBookmarkKoSet = new Set(
+    getTestBookmarks('vocab').map((item) => normalizeBookmarkKo(item.ko)).filter((value) => value)
+  );
   let html = visibleHistory.map((record) => `
     <div class="history-card">
       <div class="history-header" onclick="this.parentElement.classList.toggle('expanded')">
@@ -2313,28 +2429,21 @@ function renderTestHistoryList() {
           <div class="history-meta">📅 ${escapeHtml(record.time || '')}</div>
         </div>
         <div class="history-score">${Number(record.score) || 0} / ${Number(record.total) || 0}</div>
-        <button class="btn" style="background: transparent; color: var(--danger); padding: 5px; font-size: 1.2rem;"
+        <button type="button" class="btn" style="background: transparent; color: var(--danger); padding: 5px; font-size: 1.2rem;"
                 onclick="event.stopPropagation(); deleteSingleRecord(${Number(record.id)})">🗑️</button>
       </div>
 
       <div class="history-details">
         ${(record.words || []).map((w, index) => {
-          const vocabId = Number(w.id);
-          const isSynced = state.settings.syncTestVocabBookmark === true;
-          let isBookmarked = false;
-          if (isSynced) {
-            isBookmarked = bookmarkedSet.has(Number.isNaN(vocabId) ? w.id : vocabId);
-          } else {
-            isBookmarked = getTestBookmarks('vocab').some((b) => String(b.ko).trim() === String(w.ko).trim());
-          }
+          const isBookmarked = vocabBookmarkKoSet.has(normalizeBookmarkKo(w.ko));
           return `
           <div class="history-word-row" style="display: flex; align-items: center; gap: 8px;">
             <div style="min-width: 25px; color: var(--text-muted); font-size: 0.9rem;">${index + 1}.</div>
             <div class="word-status ${w.isCorrect ? 'correct' : 'wrong'}">${w.isCorrect ? '✅' : '❌'}</div>
             <div class="word-text"><strong>${escapeHtml(w.ko || '')}</strong> - ${escapeHtml(w.zh || '')}</div>
             <div class="history-actions">
-              <button onclick="playExampleSentence('${escapeAttr(w.ko || '')}', this)">🔊</button>
-              <button class="bookmark-btn" onclick="toggleHistoryBookmark(this, '${escapeAttr(String(w.id ?? ''))}', '${escapeAttr(w.ko || '')}', '${escapeAttr(w.zh || '')}')">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); playExampleSentence('${escapeAttr(w.ko || '')}', this)">🔊</button>
+              <button type="button" class="bookmark-btn" data-ko="${escapeAttr(normalizeBookmarkKo(w.ko))}" onclick="toggleHistoryBookmark(event, this, '${escapeAttr(String(w.id ?? ''))}', '${escapeAttr(w.ko || '')}', '${escapeAttr(w.zh || '')}')">
                 <i class="${isBookmarked ? 'fas' : 'far'} fa-star" style="color: ${isBookmarked ? '#ffc107' : 'var(--text-muted)'};"></i>
               </button>
             </div>
@@ -2380,11 +2489,15 @@ function getVocabTestPool() {
   const state = getState();
   if (uiState.vocabTestSource === 'bookmarked') {
     const globalMarks = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
-    const localTestMarks = new Set(getTestBookmarks('vocab').map((bookmark) => String(bookmark.ko || '').trim()));
+    const localTestMarks = new Set(
+      getTestBookmarks('vocab')
+        .map((bookmark) => normalizeBookmarkKo(bookmark?.ko))
+        .filter((value) => value)
+    );
 
     pool = pool.filter((v) => {
       const vocabId = String(v.id);
-      const vocabKo = String(v.ko || '').trim();
+      const vocabKo = normalizeBookmarkKo(v.ko);
       return globalMarks.has(vocabId) || localTestMarks.has(vocabKo);
     });
   }
@@ -2604,7 +2717,7 @@ function ensureAdvancedSettingsControls() {
       <label for="jumpLevelSelect" style="color: var(--danger); font-weight: bold;">🚀 跳級選項 (強制修改線性紀錄)</label>
       <select id="jumpLevelSelect" class="btn secondary" style="width: 100%; text-align: left; padding: 10px;"></select>
       <p class="message" style="font-size: 0.85rem; margin-top: 0;">
-        選擇後，您的線性紀錄將直接跳至該章節。（開放模式下瀏覽不會影響此紀錄）
+        選擇後，您的線性紀錄將直接跳至該章節。
       </p>
     </div>
 
@@ -2751,28 +2864,28 @@ function renderChatView() {
         <button class="btn ${uiState.chatDirection === 'to-zh' ? '' : 'secondary'}" data-dir="to-zh">回答中文</button>
       </div>
 
-      <div class="row" style="margin-bottom: 15px; align-items: flex-start;">
-        <span class="message" style="margin-top: 10px;">範圍限定：</span>
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+      <div class="row chapter-filter-row" style="margin-bottom: 15px; align-items: flex-start;">
+        <span class="message chapter-filter-label" style="margin-top: 10px;">範圍限定：</span>
+        <div class="chapter-filter-panel" style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
           ${(uiState.chatPracticeType === 'vocab' || uiState.chatPracticeType === 'mixed') ? `
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="chapter-filter-item" style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 0.85rem; color: var(--neon-cyan); min-width: 40px;">單字</span>
-            <div class="tag-input-container" onclick="openChapterSelector('chatVocabChapters', 'vocab')">
+            <div class="tag-input-container chapter-tag-container" onclick="openChapterSelector('chatVocabChapters', 'vocab')">
               <div class="tags-wrapper">${renderTagsHtml(uiState.chatVocabChapters, '單字')}</div>
               <button class="tag-add-btn"><i class="fas fa-plus"></i></button>
             </div>
           </div>` : ''}
 
           ${(uiState.chatPracticeType === 'grammar' || uiState.chatPracticeType === 'mixed') ? `
-          <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="chapter-filter-item" style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 0.85rem; color: var(--neon-cyan); min-width: 40px;">文法</span>
-            <div class="tag-input-container" onclick="openChapterSelector('chatGrammarChapters', 'grammar')">
+            <div class="tag-input-container chapter-tag-container" onclick="openChapterSelector('chatGrammarChapters', 'grammar')">
               <div class="tags-wrapper">${renderTagsHtml(uiState.chatGrammarChapters, '文法')}</div>
               <button class="tag-add-btn"><i class="fas fa-plus"></i></button>
             </div>
           </div>` : ''}
         </div>
-        <button onclick="openTestBookmarkDialog('chat')" class="btn secondary" style="color: #ffc107; border-color: #ffc107; margin-top: 5px;">⭐ 標記紀錄</button>
+        <button onclick="openTestBookmarkDialog('chat')" class="btn secondary chapter-bookmark-btn" style="color: #ffc107; border-color: #ffc107; margin-top: 5px;">⭐ 標記紀錄</button>
       </div>
 
       <div class="grammar-pattern-card">
@@ -2804,10 +2917,11 @@ function renderChatView() {
   container.querySelector('#showAnswerBtn').addEventListener('click', () => {
     const feedback = document.getElementById('chatFeedback');
     const state = getState();
-    let isLit = getTestBookmarks('chat').some((b) => String(b.ko).trim() === String(mission.ko || '').trim());
+    const mainBookmarkedSet = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+    let isLit = getTestBookmarks('chat').some((b) => normalizeBookmarkKo(b?.ko) === normalizeBookmarkKo(mission.ko));
     if (!isLit && state.settings.syncTestVocabBookmark) {
-      const v = vocabData.find((item) => String(item.ko).trim() === String(mission.ko || '').trim());
-      if (v && state.progress.bookmarkedVocab.includes(v.id)) isLit = true;
+      const v = vocabData.find((item) => normalizeBookmarkKo(item.ko) === normalizeBookmarkKo(mission.ko));
+      if (v && mainBookmarkedSet.has(String(v.id))) isLit = true;
     }
     const markBtnHtml = `<button class="icon-btn" style="margin-left: 10px; color: var(--text-muted); background:transparent; border:none;" onclick="toggleBookmarkCurrentMission(this)"><i class="${isLit ? 'fas' : 'far'} fa-star" style="${isLit ? 'color: #ffc107; text-shadow: 0 0 8px rgba(255, 193, 7, 0.5);' : ''}"></i></button>`;
     feedback.innerHTML = `
@@ -2951,10 +3065,11 @@ function checkMissionAnswer(userText) {
 
   // 🟢 在 checkMissionAnswer 中替換標記按鈕邏輯
   const state = getState();
-  let isLit = getTestBookmarks('chat').some((b) => String(b.ko).trim() === String(target).trim());
+  const mainBookmarkedSet = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+  let isLit = getTestBookmarks('chat').some((b) => normalizeBookmarkKo(b?.ko) === normalizeBookmarkKo(target));
   if (!isLit && state.settings.syncTestVocabBookmark) {
-    const v = vocabData.find((item) => String(item.ko).trim() === String(target).trim());
-    if (v && state.progress.bookmarkedVocab.includes(v.id)) isLit = true;
+    const v = vocabData.find((item) => normalizeBookmarkKo(item.ko) === normalizeBookmarkKo(target));
+    if (v && mainBookmarkedSet.has(String(v.id))) isLit = true;
   }
 
   const markBtnHtml = `<button class="icon-btn" style="margin-left: 10px; color: var(--text-muted); background:transparent; border:none;" onclick="toggleBookmarkCurrentMission(this)"><i class="${isLit ? 'fas' : 'far'} fa-star" style="${isLit ? 'color: #ffc107; text-shadow: 0 0 8px rgba(255, 193, 7, 0.5);' : ''}"></i></button>`;
@@ -3147,7 +3262,7 @@ window.playExampleSentence = function (text, btnElement) {
     const cleanText = normalizedText
       .replace(/^[AB][:：]\s*/, '')
       .replace(/\s*B[:：]\s*/g, ' ')
-      .replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$]/g, '')
+      .replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$<>→➔➜]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
     await audioController.speak(cleanText || normalizedText);
@@ -3173,12 +3288,59 @@ function renderTagsHtml(str, prefix = '') {
     return `<span class="tag-chip" style="background: var(--neon-color); color: white;">全選</span>`;
   }
 
+  if (parts.length > 4) {
+    const previewParts = [parts[0], parts[1], parts[2], parts[parts.length - 1]];
+    const uniquePreviewParts = [...new Set(previewParts)];
+    const preview = uniquePreviewParts
+      .map((p) => `<span class="tag-chip">Part:${p}</span>`)
+      .join('');
+    return `${preview}<span class="tag-chip tag-chip-summary">共${parts.length}個</span>`;
+  }
+
   return parts.map((p) => `<span class="tag-chip">Part ${p}</span>`).join('');
 }
 
 // 🟢 章節快速選取器全域變數與功能
 let currentSelectingStateKey = null;
 let currentSelectingParts = new Set();
+let currentAvailableParts = [];
+
+function renderChapterGridButtons(filterText = '') {
+  const grid = document.getElementById('chapterGridContent');
+  if (!grid) return;
+
+  const normalized = String(filterText || '').trim();
+  const filteredParts = normalized
+    ? currentAvailableParts.filter((p) => String(p).includes(normalized))
+    : [...currentAvailableParts];
+
+  const gridHtml = filteredParts.map((p) => `
+    <button class="chapter-grid-btn ${currentSelectingParts.has(p) ? 'active' : ''}" data-part="${p}">
+      ${p}
+    </button>
+  `).join('');
+
+  grid.innerHTML = gridHtml || '<div class="message">沒有符合的章節</div>';
+
+  const searchMeta = document.getElementById('chapterSearchMeta');
+  if (searchMeta) {
+    searchMeta.textContent = `顯示 ${filteredParts.length} / ${currentAvailableParts.length}`;
+  }
+
+  grid.querySelectorAll('.chapter-grid-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const p = Number(btn.dataset.part);
+      if (currentSelectingParts.has(p)) {
+        currentSelectingParts.delete(p);
+        btn.classList.remove('active');
+      } else {
+        currentSelectingParts.add(p);
+        btn.classList.add('active');
+      }
+      updateSelectedCountDisplay();
+    });
+  });
+}
 
 function updateSelectedCountDisplay() {
   const el = document.getElementById('selectedCountDisplay');
@@ -3203,29 +3365,15 @@ window.openChapterSelector = function(stateKey, dataType) {
   else if (dataType === 'chat') pool = [...grammarData, ...vocabData];
   else if (dataType === 'grammar') pool = grammarData;
 
-  const availableParts = [...new Set(pool.map((item) => Number(item.part)).filter((p) => !Number.isNaN(p) && p > 0))].sort((a, b) => a - b);
+  currentAvailableParts = [...new Set(pool.map((item) => Number(item.part)).filter((p) => !Number.isNaN(p) && p > 0))].sort((a, b) => a - b);
 
-  const gridHtml = availableParts.map((p) => `
-    <button class="chapter-grid-btn ${currentSelectingParts.has(p) ? 'active' : ''}" data-part="${p}">
-      ${p}
-    </button>
-  `).join('');
+  const searchInput = document.getElementById('chapterSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.oninput = () => renderChapterGridButtons(searchInput.value);
+  }
 
-  document.getElementById('chapterGridContent').innerHTML = gridHtml || '<div class="message">無可用章節</div>';
-
-  document.querySelectorAll('.chapter-grid-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const p = Number(btn.dataset.part);
-      if (currentSelectingParts.has(p)) {
-        currentSelectingParts.delete(p);
-        btn.classList.remove('active');
-      } else {
-        currentSelectingParts.add(p);
-        btn.classList.add('active');
-      }
-      updateSelectedCountDisplay();
-    });
-  });
+  renderChapterGridButtons('');
 
   updateSelectedCountDisplay();
   dialog.showModal();
@@ -3248,17 +3396,14 @@ window.saveChapterSelection = function() {
 };
 
 window.selectAllChapters = function() {
-  document.querySelectorAll('.chapter-grid-btn').forEach((btn) => {
-    const p = Number(btn.dataset.part);
-    currentSelectingParts.add(p);
-    btn.classList.add('active');
-  });
+  currentAvailableParts.forEach((p) => currentSelectingParts.add(Number(p)));
+  renderChapterGridButtons((document.getElementById('chapterSearchInput') || {}).value || '');
   updateSelectedCountDisplay();
 };
 
 window.clearAllChapters = function() {
   currentSelectingParts.clear();
-  document.querySelectorAll('.chapter-grid-btn').forEach((btn) => btn.classList.remove('active'));
+  renderChapterGridButtons((document.getElementById('chapterSearchInput') || {}).value || '');
   updateSelectedCountDisplay();
 };
 
@@ -3348,35 +3493,35 @@ function renderTestBookmarkList() {
   `).join('');
 }
 
-function syncRemoveChatMarksFromVocabBank(marks) {
+function syncRemoveMarksFromVocabBank(marks, sourceType) {
   if (!Array.isArray(marks) || marks.length === 0) return;
 
   const state = getState();
-  const bookmarkedSet = new Set(state.progress.bookmarkedVocab || []);
-  const processedIds = new Set();
+  const bookmarkedSet = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+  const idsToRemove = new Set();
 
   marks.forEach((mark) => {
-    const cleanKo = String(mark?.ko || '').trim();
-    if (!cleanKo) return;
+    const id = findVocabIdByKo(mark?.ko);
+    if (id !== null) idsToRemove.add(id);
+  });
 
-    const vocabItem = vocabData.find((v) => String(v.ko || '').trim() === cleanKo);
-    if (!vocabItem) return;
-    if (processedIds.has(vocabItem.id)) return;
+  const otherType = sourceType === 'chat' ? 'vocab' : 'chat';
+  collectSyncedVocabIdsByType(otherType).forEach((id) => idsToRemove.delete(id));
 
-    processedIds.add(vocabItem.id);
-    if (bookmarkedSet.has(vocabItem.id)) {
-      toggleBookmarkedVocab(vocabItem.id);
+  idsToRemove.forEach((id) => {
+    if (bookmarkedSet.has(id)) {
+      toggleBookmarkedVocab(id);
     }
   });
 }
 
 window.deleteSingleTestBookmark = function(id, type) {
   if (confirm('確定移除此標記？')) {
-    if (type === 'chat') {
-      const marks = getTestBookmarks('chat');
+    if (type === 'chat' || type === 'vocab') {
+      const marks = getTestBookmarks(type);
       const target = marks.find((m) => Number(m.id) === Number(id));
       if (target) {
-        syncRemoveChatMarksFromVocabBank([target]);
+        syncRemoveMarksFromVocabBank([target], type);
       }
     }
 
@@ -3391,9 +3536,7 @@ document.getElementById('btn-clear-test-bookmarks')?.addEventListener('click', (
     // 🟢 修正：清空標記時停止播放
     audioController.cancel();
 
-    if (currentBookmarkType === 'chat') {
-      syncRemoveChatMarksFromVocabBank(getTestBookmarks('chat'));
-    }
+    syncRemoveMarksFromVocabBank(getTestBookmarks(currentBookmarkType), currentBookmarkType);
 
     clearTestBookmarks(currentBookmarkType);
     void triggerCloudSave();
@@ -3419,9 +3562,9 @@ window.toggleBookmarkCurrentVocabTest = function(btn) {
 // 🟢 切換星星狀態的通用函式
 window.toggleTestBookmark = function(btn, ko, zh, type) {
   const icon = btn?.querySelector('i');
-  const cleanKo = String(ko || '').trim();
+  const cleanKo = normalizeBookmarkKo(ko);
   const bookmarks = getTestBookmarks(type);
-  const isAlreadyMarked = bookmarks.some((item) => String(item.ko || '').trim() === cleanKo);
+  const isAlreadyMarked = bookmarks.some((item) => normalizeBookmarkKo(item?.ko) === cleanKo);
   
   // 決定是要開啟還是關閉
   const isTurningOn = icon ? icon.classList.contains('far') : !isAlreadyMarked;
@@ -3431,15 +3574,16 @@ window.toggleTestBookmark = function(btn, ko, zh, type) {
 
   // 2. 實作您的聯動邏輯
   const state = getState();
-  const vocabItem = vocabData.find((v) => String(v.ko || '').trim() === cleanKo);
+  const vocabItem = vocabData.find((v) => normalizeBookmarkKo(v.ko) === cleanKo);
 
   if (vocabItem) {
-    const isMainBookmarked = state.progress.bookmarkedVocab.includes(vocabItem.id);
+    const bookmarkedSet = new Set((state.progress.bookmarkedVocab || []).map((id) => String(id)));
+    const isMainBookmarked = bookmarkedSet.has(String(vocabItem.id));
     let shouldSyncToBank = false;
 
     if (type === 'vocab') {
-      // 🟢 要求 1：單字測試 (vocab) 的標記完全同步單字庫
-      shouldSyncToBank = true;
+      // 單字測驗 (vocab) 依照新設定決定是否同步
+      shouldSyncToBank = state.settings.syncVocabTestBookmark === true;
     } else if (type === 'chat' && state.settings.syncTestVocabBookmark === true) {
       // 🟢 要求 2：全能測試 (chat) 依照設定決定是否同步
       shouldSyncToBank = true;
@@ -3555,7 +3699,10 @@ async function flushOfflineResults() {
     // 2. 核心修正：強制執行一次完整的背景同步，將離線標記的星星推上雲端
     await triggerCloudSave();
 
-    // 3. 顯示火箭綠色提示
+    // 3. 重繪目前路由，確保重連後畫面立即反映最新狀態
+    refreshCurrentRoute();
+
+    // 4. 顯示火箭綠色提示
     showInfo('🚀 已自動將離線與最新紀錄合併');
   } catch (err) {
     console.error('離線同步失敗:', err);

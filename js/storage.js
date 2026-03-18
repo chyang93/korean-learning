@@ -38,6 +38,7 @@ const defaultState = {
     theme: 'dark',
     autoPlayCorrect: true, 
     syncTestVocabBookmark: true,
+    syncVocabTestBookmark: true,
     autoSyncAcrossDevices: false
   },
   chatHistory: []
@@ -53,6 +54,10 @@ function parseJSON(value, fallback) {
 
 function unique(items) {
   return [...new Set(items)];
+}
+
+function normalizeBookmarkKo(value) {
+  return String(value || '').replace(/^[AB][:：]\s*/, '').trim();
 }
 
 function splitLegacyChapterProgress(progress = {}) {
@@ -110,6 +115,9 @@ export function getState() {
       mergedProgress.currentLinearId = -200;
     }
   }
+
+  // Normalize bookmarked vocab IDs to string and remove legacy duplicates (e.g., 12 and "12").
+  mergedProgress.bookmarkedVocab = unique((mergedProgress.bookmarkedVocab || []).map((id) => String(id)));
 
   return {
     ...defaultState,
@@ -180,7 +188,9 @@ export function toggleLearnedPronunciation(id) {
 
 export function toggleBookmarkedVocab(id) {
   const state = getState();
-  state.progress.bookmarkedVocab = toggleArrayValue(state.progress.bookmarkedVocab, id);
+  const normalizedId = String(id);
+  const normalizedList = (state.progress.bookmarkedVocab || []).map((item) => String(item));
+  state.progress.bookmarkedVocab = toggleArrayValue(normalizedList, normalizedId);
   setState(state);
   return state;
 }
@@ -417,8 +427,8 @@ export function toggleTestBookmarkItem(ko, zh, type, forceState) {
     ? (state.testBookmarksVocab = state.testBookmarksVocab || [])
     : (state.testBookmarksChat = state.testBookmarksChat || []);
 
-  const cleanKo = String(ko).trim();
-  const existingIdx = list.findIndex((b) => String(b.ko).trim() === cleanKo);
+  const cleanKo = normalizeBookmarkKo(ko);
+  const existingIdx = list.findIndex((b) => normalizeBookmarkKo(b?.ko) === cleanKo);
 
   if (forceState !== undefined) {
     if (forceState && existingIdx < 0) {

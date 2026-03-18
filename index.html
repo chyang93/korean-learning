@@ -100,13 +100,17 @@
 
       <label class="checkbox-row">
         <input id="syncTestVocabBookmark" type="checkbox" />
-        自動將全能測驗中的單字標記同步至「單字庫標記」
+        自動將【全能測驗】中的單字標記同步至「單字庫標記」
       </label>
-        <p class="message" style="font-size: 0.8rem; margin-top: 1px;">開啟後若要取消標記請從全能測試裡更改，單字庫無法取消。</p>
+
+      <label class="checkbox-row">
+        <input id="syncVocabTestBookmark" type="checkbox" />
+        自動將【單字測驗】中的單字標記同步至「單字庫標記」
+      </label>
 
       <div class="dialog-actions">
         <button type="button" id="saveSettingsBtn" class="btn">儲存設定</button>
-        <button type="submit" class="btn secondary">關閉</button>
+        <button type="submit" class="btn secondary">取消</button>
         <button type="button" id="clearMemoryBtn" class="btn" style="background-color: var(--danger); border-color: var(--danger); color: rgb(255, 255, 255); margin-left: auto;">清除記憶</button>
       </div>
       <p id="settingsMessage" class="message"></p>
@@ -169,6 +173,10 @@
         <div style="flex: 1;"></div>
         <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="selectAllChapters()">全選</button>
         <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="clearAllChapters()">清空</button>
+      </div>
+      <div class="chapter-search-row">
+        <input id="chapterSearchInput" type="text" placeholder="搜尋 Part（例如：2、26、101）" />
+        <span id="chapterSearchMeta" class="message">顯示 0 / 0</span>
       </div>
       <div id="chapterGridContent" class="chapter-grid" style="overflow-y: auto; max-height: calc(85vh - 200px);"></div>
     </div>
