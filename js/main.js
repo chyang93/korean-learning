@@ -564,12 +564,15 @@ const audioController = {
 };
 
 function checkLineAndNotify() {
-  const lineNoticeDismissedKey = 'korean_line_notice_dismissed';
+  const LINE_OVERLAY_SNOOZE_KEY = 'korean_line_overlay_hide_until_date';
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
   const ua = navigator.userAgent || navigator.vendor || window.opera || '';
   const isLine = ua.indexOf('Line') > -1;
-  const isDismissed = localStorage.getItem(lineNoticeDismissedKey) === 'true';
+  const hideUntilDate = localStorage.getItem(LINE_OVERLAY_SNOOZE_KEY);
 
-  if (!isLine || isDismissed) {
+  if (!isLine || hideUntilDate === today) {
     return;
   }
 
@@ -596,12 +599,20 @@ function checkLineAndNotify() {
       請點擊右上角 <b style="color: #00d2ff;">「...」</b><br>
       並選擇 <b style="color: #00d2ff;">「在預設瀏覽器中開啟」</b>
     </p>
+    <label style="margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; cursor: pointer;">
+      <input id="lineOverlayNoShowToday" type="checkbox" style="width: 16px; height: 16px;" />
+      今日不再顯示
+    </label>
     <button type="button" class="btn" style="margin-top: 20px; background: #333;">我知道了，繼續瀏覽(無聲)</button>
   `;
 
   const closeBtn = overlay.querySelector('button');
+  const noShowToday = overlay.querySelector('#lineOverlayNoShowToday');
+
   closeBtn?.addEventListener('click', () => {
-    localStorage.setItem(lineNoticeDismissedKey, 'true');
+    if (noShowToday?.checked) {
+      localStorage.setItem(LINE_OVERLAY_SNOOZE_KEY, today);
+    }
     overlay.remove();
   });
 
@@ -3932,7 +3943,7 @@ window.startOfflineTest = startOfflineTest;
 
 // ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
 async function forceAppUpdate() {
-  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響紀錄\n解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+  if (confirm('☢️ 確定要執行核彈級更新嗎？\n\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
     try {
       showInfo('正在執行深度清除...');
 
