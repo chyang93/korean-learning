@@ -536,34 +536,43 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.stopIndicator();
+        resolve();
+      };
+
       // 🟢 新增：逾時保護，防止 LINE 瀏覽器無聲卡死
       const timeout = setTimeout(() => {
         console.warn('⏳ [Debug] 語音播放逾時，強迫跳過');
-        this.stopIndicator();
-        resolve();
+        if (typeof options.onTimeout === 'function') {
+          try {
+            options.onTimeout();
+          } catch (timeoutError) {
+            console.error('語音逾時回呼失敗:', timeoutError);
+          }
+        }
+        finish();
       }, 5000);
 
       try {
         speak(text, {
           onstart: () => {
+            if (settled) return;
             this.startIndicator();
           },
           onend: () => {
-            clearTimeout(timeout);
-            this.stopIndicator();
-            resolve();
+            finish();
           },
           onerror: () => {
-            clearTimeout(timeout);
-            this.stopIndicator();
-            // 這裡不再 reject 報錯，避免中斷教學流程
-            resolve();
+            finish();
           }
         });
       } catch (error) {
-        clearTimeout(timeout);
-        this.stopIndicator();
-        resolve();
+        finish();
       }
     });
   },
@@ -1547,6 +1556,30 @@ function renderStartView() {
   let lessonId = 0;
   let localAbortSignal = globalAbortSignal;
 
+  const revealAllChapterContent = () => {
+    cancelSpeech();
+    globalAbortSignal += 1;
+
+    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
+      if (el) el.className = 'stage-card layout-full';
+    });
+    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
+
+    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
+      btn.dataset.played = 'true';
+      btn.style.color = 'var(--neon-color)';
+    });
+
+    unlockNextButton();
+    const hintEl = container.querySelector('#completionHint');
+    if (hintEl) hintEl.innerHTML = '✅ 已略過教學，已解鎖下一課！';
+
+    const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
+    if (showAllBtn) {
+      showAllBtn.style.display = 'none';
+    }
+  };
+
   const safeSpeak = async (text, id) => {
     if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
 
@@ -1565,7 +1598,10 @@ function renderStartView() {
 
       setSpeed(userSettings.audioSpeed || 1.0);
 
-      await audioController.speak(speakText, { cancelFirst: false });
+      await audioController.speak(speakText, {
+        cancelFirst: false,
+        onTimeout: revealAllChapterContent
+      });
 
       setSpeed(userSettings.audioSpeed || 1.0);
       if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
@@ -1778,28 +1814,7 @@ function renderStartView() {
   container.querySelector('#btnRestartLesson').addEventListener('click', () => { globalAbortSignal = Date.now(); audioController.cancel(); renderStartView(); });
   const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
   showAllBtn?.addEventListener('click', () => {
-    cancelSpeech();
-    globalAbortSignal += 1;
-
-    // 1. 顯示所有隱藏區塊（同時保留舊節點命名相容）
-    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
-      if (el) el.className = 'stage-card layout-full';
-    });
-    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
-
-    // 2. 將所有播放按鈕標記為已讀 (視覺回饋)
-    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
-      btn.dataset.played = 'true';
-      btn.style.color = 'var(--neon-color)';
-    });
-
-    // 3. 直接解鎖「前往下一課」按鈕並更新提示
-    unlockNextButton();
-    const hintEl = container.querySelector('#completionHint');
-    if (hintEl) hintEl.innerHTML = '✅ 已略過教學，已解鎖下一課！';
-
-    // 4. 隱藏「全部顯示」按鈕本身
-    showAllBtn.style.display = 'none';
+    revealAllChapterContent();
   });
 
   // 🟢 新增這段：綁定「重聽解析」按鈕
