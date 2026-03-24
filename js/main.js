@@ -573,7 +573,6 @@ const audioController = {
     }
   },
   async speak(text, options = {}) {
-    // 🟢 修正：不再報錯中斷，改為自動嘗試啟用
     enableAudioByUserAction();
 
     if (options.cancelFirst !== false) {
@@ -581,22 +580,33 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
+      // LINE WebView 可能不觸發 onend/onerror，加入逾時保護避免流程卡死。
+      const timeoutId = setTimeout(() => {
+        console.warn('⏳ [Debug] 語音播放逾時，強迫跳過以防止程式卡死');
+        this.stopIndicator();
+        resolve();
+      }, 5000);
+
       try {
         speak(text, {
           onstart: () => {
             this.startIndicator();
           },
           onend: () => {
+            clearTimeout(timeoutId);
             this.stopIndicator();
             resolve();
           },
-          onerror: () => {
+          onerror: (err) => {
+            console.error('🛑 [Debug] 語音播放出錯:', err);
+            clearTimeout(timeoutId);
             this.stopIndicator();
-            // 這裡不再 reject 報錯，避免中斷教學流程
             resolve();
           }
         });
       } catch (error) {
+        console.error('❌ [Debug] Speak 嘗試失敗:', error);
+        clearTimeout(timeoutId);
         this.stopIndicator();
         resolve();
       }
@@ -728,6 +738,26 @@ async function init() {
     const route = resolveRouteFromHash();
     route ? renderRoute(route) : renderHomeState();
   });
+
+  // 🟢 修正：針對 LINE 瀏覽器的語音引擎喚醒補丁
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        console.log(`✅ [Debug] 語音包已就緒：偵測到 ${voices.length} 個語音`);
+      }
+    };
+  }
+
+  // 在第一次點擊任何地方時，嘗試播放空字串來解鎖 LINE 音訊
+  document.addEventListener('click', () => {
+    if (window.speechSynthesis) {
+      const dummy = new SpeechSynthesisUtterance('');
+      dummy.volume = 0;
+      window.speechSynthesis.speak(dummy);
+      console.log('🔊 [Debug] 嘗試執行音訊解鎖 (Silent Kick)');
+    }
+  }, { once: true });
 }
 
 function setupEventListeners() {
