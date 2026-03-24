@@ -3966,9 +3966,9 @@ async function startOfflineTest(chapterPart) {
 
 window.startOfflineTest = startOfflineTest;
 
-// ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
+// ☢️ 更新：解除 SW + 清空快取 + 刷新
 async function forceAppUpdate() {
-  if (confirm('☢️ 確定要執行核彈級更新嗎？\n\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響紀錄\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
     try {
       showInfo('正在執行深度清除...');
 
@@ -4000,7 +4000,7 @@ async function forceAppUpdate() {
       showInfo(`✅ 清除完成，版本 ${versionText}，正在重新載入最新版本...`);
       setTimeout(() => window.location.reload(true), 900);
     } catch (err) {
-      console.error('核彈更新失敗:', err);
+      console.error('更新失敗:', err);
       alert('更新失敗，請手動清理系統快取。');
     }
   }
