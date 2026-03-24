@@ -54,17 +54,12 @@ import { OfflineQuizEngine } from './quizEngine.js';
 
 let swRegistrationRef = null;
 let isReloadingForSwUpdate = false;
-let swUpdateFallbackTimer = null;
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (isReloadingForSwUpdate) return;
       isReloadingForSwUpdate = true;
-      if (swUpdateFallbackTimer) {
-        clearTimeout(swUpdateFallbackTimer);
-        swUpdateFallbackTimer = null;
-      }
       window.location.reload();
     });
 
@@ -115,77 +110,37 @@ function showUpdateToast() {
   document.body.appendChild(toast);
 
   const applyBtn = toast.querySelector('#applySwUpdateBtn');
-  applyBtn?.addEventListener('click', async () => {
-    applyBtn.disabled = true;
-    applyBtn.textContent = '更新中...';
-    await applyServiceWorkerUpdate();
+  applyBtn?.addEventListener('click', () => {
+    void forceAppUpdate();
   });
-}
-
-function scheduleSwUpdateFallbackReload() {
-  if (swUpdateFallbackTimer) {
-    clearTimeout(swUpdateFallbackTimer);
-  }
-
-  swUpdateFallbackTimer = setTimeout(() => {
-    if (isReloadingForSwUpdate) {
-      return;
-    }
-    isReloadingForSwUpdate = true;
-    window.location.reload();
-  }, 1800);
-}
-
-function requestWorkerSkipWaiting(worker) {
-  if (!worker) {
-    return false;
-  }
-
-  worker.postMessage({ type: 'SKIP_WAITING' });
-  scheduleSwUpdateFallbackReload();
-  return true;
 }
 
 async function applyServiceWorkerUpdate() {
   try {
-    const registration = swRegistrationRef
-      || await navigator.serviceWorker.getRegistration('./sw.js')
-      || await navigator.serviceWorker.getRegistration();
-
+    const registration = swRegistrationRef || await navigator.serviceWorker.getRegistration('./sw.js');
     if (!registration) {
       window.location.reload();
       return;
     }
 
-    if (requestWorkerSkipWaiting(registration.waiting)) {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       return;
     }
 
     if (registration.installing) {
       const worker = registration.installing;
-
-      if (worker.state === 'installed') {
-        if (requestWorkerSkipWaiting(registration.waiting || worker)) {
-          return;
-        }
-      }
-
       worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed') {
-          if (!requestWorkerSkipWaiting(registration.waiting || worker)) {
-            window.location.reload();
-          }
+        if (worker.state === 'installed' && registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
       });
-
-      // Some webviews may miss worker state transitions; recover with a timed reload.
-      scheduleSwUpdateFallbackReload();
       return;
     }
 
     await registration.update();
-
-    if (requestWorkerSkipWaiting(registration.waiting)) {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       return;
     }
 
@@ -573,6 +528,7 @@ const audioController = {
     }
   },
   async speak(text, options = {}) {
+    // 🟢 修正：不再報錯中斷，改為自動嘗試啟用
     enableAudioByUserAction();
 
     if (options.cancelFirst !== false) {
@@ -580,33 +536,22 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
-      // LINE WebView 可能不觸發 onend/onerror，加入逾時保護避免流程卡死。
-      const timeoutId = setTimeout(() => {
-        console.warn('⏳ [Debug] 語音播放逾時，強迫跳過以防止程式卡死');
-        this.stopIndicator();
-        resolve();
-      }, 5000);
-
       try {
         speak(text, {
           onstart: () => {
             this.startIndicator();
           },
           onend: () => {
-            clearTimeout(timeoutId);
             this.stopIndicator();
             resolve();
           },
-          onerror: (err) => {
-            console.error('🛑 [Debug] 語音播放出錯:', err);
-            clearTimeout(timeoutId);
+          onerror: () => {
             this.stopIndicator();
+            // 這裡不再 reject 報錯，避免中斷教學流程
             resolve();
           }
         });
       } catch (error) {
-        console.error('❌ [Debug] Speak 嘗試失敗:', error);
-        clearTimeout(timeoutId);
         this.stopIndicator();
         resolve();
       }
@@ -618,7 +563,54 @@ const audioController = {
   }
 };
 
+function checkLineAndNotify() {
+  const lineNoticeDismissedKey = 'korean_line_notice_dismissed';
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  const isLine = ua.indexOf('Line') > -1;
+  const isDismissed = localStorage.getItem(lineNoticeDismissedKey) === 'true';
+
+  if (!isLine || isDismissed) {
+    return;
+  }
+
+  console.warn('⚠️ [Debug] 偵測到 LINE 瀏覽器，準備顯示跳轉提示');
+
+  if (document.getElementById('line-browser-overlay')) {
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'line-browser-overlay';
+  overlay.style = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9); z-index: 10000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 30px; text-align: center; color: white;
+  `;
+
+  overlay.innerHTML = `
+    <div style="font-size: 3rem; margin-bottom: 20px;">🚫</div>
+    <h2 style="color: #ff4d4d;">LINE 瀏覽器不支援語音</h2>
+    <p style="margin: 15px 0; line-height: 1.6;">
+      LINE 內建瀏覽器會封鎖韓文語音功能。<br>
+      請點擊右上角 <b style="color: #00d2ff;">「...」</b><br>
+      並選擇 <b style="color: #00d2ff;">「在預設瀏覽器中開啟」</b>
+    </p>
+    <button type="button" class="btn" style="margin-top: 20px; background: #333;">我知道了，繼續瀏覽(無聲)</button>
+  `;
+
+  const closeBtn = overlay.querySelector('button');
+  closeBtn?.addEventListener('click', () => {
+    localStorage.setItem(lineNoticeDismissedKey, 'true');
+    overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+}
+
 async function init() {
+  checkLineAndNotify();
+
   initNetworkStatusBadge();
   initOfflineDetection();
 
@@ -738,26 +730,6 @@ async function init() {
     const route = resolveRouteFromHash();
     route ? renderRoute(route) : renderHomeState();
   });
-
-  // 🟢 修正：針對 LINE 瀏覽器的語音引擎喚醒補丁
-  if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        console.log(`✅ [Debug] 語音包已就緒：偵測到 ${voices.length} 個語音`);
-      }
-    };
-  }
-
-  // 在第一次點擊任何地方時，嘗試播放空字串來解鎖 LINE 音訊
-  document.addEventListener('click', () => {
-    if (window.speechSynthesis) {
-      const dummy = new SpeechSynthesisUtterance('');
-      dummy.volume = 0;
-      window.speechSynthesis.speak(dummy);
-      console.log('🔊 [Debug] 嘗試執行音訊解鎖 (Silent Kick)');
-    }
-  }, { once: true });
 }
 
 function setupEventListeners() {
@@ -1672,36 +1644,24 @@ function renderStartView() {
   };
 
   const playFullLesson = async () => {
-    console.log('🚀 [Debug] 已進入 playFullLesson 內部');
     const runId = Date.now();
     lessonId = runId;
     globalAbortSignal = runId;
     localAbortSignal = runId;
 
-    console.log('🔇 [Debug] 正在嘗試取消現有語音...');
     audioController.cancel();
     [stageGram, stageExam, stageVocab].forEach(el => el.className = 'stage-card hidden');
     stageDial.className = 'stage-card layout-full';
     btnPlay.textContent = '⏹️ 停止播放';
 
     try {
-      console.log('🧭 [Debug] UI 狀態已切換，開始播放流程');
       const cleanTitle = currentGrammar.title.replace(/\[.*?\]|#\d+\s*/g, '').trim();
       const cid = Number(currentId);
       const isRuleRange = (cid >= -141 && cid <= -117);
-      console.log('📌 [Debug] 標題與模式資訊:', {
-        cleanTitle,
-        cid,
-        isPron,
-        isSummary,
-        isRuleRange
-      });
 
       // 文法課、總結課、規則教學區間都會先朗讀一次標題
       if (!isPron || isSummary || isRuleRange) {
-        console.log('🗣️ [Debug] 準備朗讀標題...');
-        await safeSpeak('測試標題朗讀', runId);
-        console.log('✅ [Debug] 標題朗讀 Promise 已完成 (Resolve)');
+        await safeSpeak(cleanTitle, runId);
         await safeWait(800, runId);
       }
 
@@ -1777,17 +1737,13 @@ function renderStartView() {
       void triggerCloudSave(); // 靜默背景同步
       btnPlay.textContent = '🔄 重新播放';
   } catch (e) {
-    if (e !== 'ABORT') {
-      console.error('❌ [Debug] playFullLesson 發生異常:', e);
-    }
+    if (e !== 'ABORT') console.error(e);
     btnPlay.textContent = '▶️ 開始播放教學';
   }
 };
 
   btnPlay.addEventListener('click', () => {
-    console.log('🔘 [Debug] 播放按鈕被點擊了');
     if (btnPlay.textContent.includes('停止')) {
-      console.log('⏹️ [Debug] 執行停止邏輯');
       // 執行中斷邏輯
       globalAbortSignal = Date.now();
       audioController.cancel();
@@ -1795,7 +1751,6 @@ function renderStartView() {
       // UI 復原
       btnPlay.textContent = '▶️ 開始播放教學';
     } else {
-      console.log('🎬 [Debug] 準備進入 playFullLesson()');
       playFullLesson();
     }
   });
@@ -3977,7 +3932,7 @@ window.startOfflineTest = startOfflineTest;
 
 // ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
 async function forceAppUpdate() {
-  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響學習紀錄\n解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響紀錄\n解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
     try {
       showInfo('正在執行深度清除...');
 
