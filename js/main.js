@@ -536,22 +536,32 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
+      // 🟢 新增：逾時保護，防止 LINE 瀏覽器無聲卡死
+      const timeout = setTimeout(() => {
+        console.warn('⏳ [Debug] 語音播放逾時，強迫跳過');
+        this.stopIndicator();
+        resolve();
+      }, 5000);
+
       try {
         speak(text, {
           onstart: () => {
             this.startIndicator();
           },
           onend: () => {
+            clearTimeout(timeout);
             this.stopIndicator();
             resolve();
           },
           onerror: () => {
+            clearTimeout(timeout);
             this.stopIndicator();
             // 這裡不再 reject 報錯，避免中斷教學流程
             resolve();
           }
         });
       } catch (error) {
+        clearTimeout(timeout);
         this.stopIndicator();
         resolve();
       }
@@ -593,10 +603,10 @@ function checkLineAndNotify() {
 
   overlay.innerHTML = `
     <div style="font-size: 3rem; margin-bottom: 20px;">🚫</div>
-    <h2 style="color: #ff4d4d;">LINE 瀏覽器不支援語音</h2>
+    <h2 style="color: #ff4d4d;">LINE 瀏覽器可能不支援語音</h2>
     <p style="margin: 15px 0; line-height: 1.6;">
-      LINE 內建瀏覽器會封鎖韓文語音功能。<br>
-      請點擊右上角 <b style="color: #00d2ff;">「...」</b><br>
+      LINE 內建瀏覽器可能會封鎖部分機型韓文語音功能。<br>
+      請點擊右上角或右下角的 <b style="color: #00d2ff;">「...」</b><br>
       並選擇 <b style="color: #00d2ff;">「在預設瀏覽器中開啟」</b>
     </p>
     <label style="margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; cursor: pointer;">
