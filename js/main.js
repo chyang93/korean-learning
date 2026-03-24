@@ -54,12 +54,17 @@ import { OfflineQuizEngine } from './quizEngine.js';
 
 let swRegistrationRef = null;
 let isReloadingForSwUpdate = false;
+let swUpdateFallbackTimer = null;
 
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (isReloadingForSwUpdate) return;
       isReloadingForSwUpdate = true;
+      if (swUpdateFallbackTimer) {
+        clearTimeout(swUpdateFallbackTimer);
+        swUpdateFallbackTimer = null;
+      }
       window.location.reload();
     });
 
@@ -110,37 +115,77 @@ function showUpdateToast() {
   document.body.appendChild(toast);
 
   const applyBtn = toast.querySelector('#applySwUpdateBtn');
-  applyBtn?.addEventListener('click', () => {
-    void applyServiceWorkerUpdate();
+  applyBtn?.addEventListener('click', async () => {
+    applyBtn.disabled = true;
+    applyBtn.textContent = '更新中...';
+    await applyServiceWorkerUpdate();
   });
+}
+
+function scheduleSwUpdateFallbackReload() {
+  if (swUpdateFallbackTimer) {
+    clearTimeout(swUpdateFallbackTimer);
+  }
+
+  swUpdateFallbackTimer = setTimeout(() => {
+    if (isReloadingForSwUpdate) {
+      return;
+    }
+    isReloadingForSwUpdate = true;
+    window.location.reload();
+  }, 1800);
+}
+
+function requestWorkerSkipWaiting(worker) {
+  if (!worker) {
+    return false;
+  }
+
+  worker.postMessage({ type: 'SKIP_WAITING' });
+  scheduleSwUpdateFallbackReload();
+  return true;
 }
 
 async function applyServiceWorkerUpdate() {
   try {
-    const registration = swRegistrationRef || await navigator.serviceWorker.getRegistration('./sw.js');
+    const registration = swRegistrationRef
+      || await navigator.serviceWorker.getRegistration('./sw.js')
+      || await navigator.serviceWorker.getRegistration();
+
     if (!registration) {
       window.location.reload();
       return;
     }
 
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    if (requestWorkerSkipWaiting(registration.waiting)) {
       return;
     }
 
     if (registration.installing) {
       const worker = registration.installing;
+
+      if (worker.state === 'installed') {
+        if (requestWorkerSkipWaiting(registration.waiting || worker)) {
+          return;
+        }
+      }
+
       worker.addEventListener('statechange', () => {
-        if (worker.state === 'installed' && registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        if (worker.state === 'installed') {
+          if (!requestWorkerSkipWaiting(registration.waiting || worker)) {
+            window.location.reload();
+          }
         }
       });
+
+      // Some webviews may miss worker state transitions; recover with a timed reload.
+      scheduleSwUpdateFallbackReload();
       return;
     }
 
     await registration.update();
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+
+    if (requestWorkerSkipWaiting(registration.waiting)) {
       return;
     }
 
@@ -1597,24 +1642,36 @@ function renderStartView() {
   };
 
   const playFullLesson = async () => {
+    console.log('🚀 [Debug] 已進入 playFullLesson 內部');
     const runId = Date.now();
     lessonId = runId;
     globalAbortSignal = runId;
     localAbortSignal = runId;
 
+    console.log('🔇 [Debug] 正在嘗試取消現有語音...');
     audioController.cancel();
     [stageGram, stageExam, stageVocab].forEach(el => el.className = 'stage-card hidden');
     stageDial.className = 'stage-card layout-full';
     btnPlay.textContent = '⏹️ 停止播放';
 
     try {
+      console.log('🧭 [Debug] UI 狀態已切換，開始播放流程');
       const cleanTitle = currentGrammar.title.replace(/\[.*?\]|#\d+\s*/g, '').trim();
       const cid = Number(currentId);
       const isRuleRange = (cid >= -141 && cid <= -117);
+      console.log('📌 [Debug] 標題與模式資訊:', {
+        cleanTitle,
+        cid,
+        isPron,
+        isSummary,
+        isRuleRange
+      });
 
       // 文法課、總結課、規則教學區間都會先朗讀一次標題
       if (!isPron || isSummary || isRuleRange) {
-        await safeSpeak(cleanTitle, runId);
+        console.log('🗣️ [Debug] 準備朗讀標題...');
+        await safeSpeak('測試標題朗讀', runId);
+        console.log('✅ [Debug] 標題朗讀 Promise 已完成 (Resolve)');
         await safeWait(800, runId);
       }
 
@@ -1690,13 +1747,17 @@ function renderStartView() {
       void triggerCloudSave(); // 靜默背景同步
       btnPlay.textContent = '🔄 重新播放';
   } catch (e) {
-    if (e !== 'ABORT') console.error(e);
+    if (e !== 'ABORT') {
+      console.error('❌ [Debug] playFullLesson 發生異常:', e);
+    }
     btnPlay.textContent = '▶️ 開始播放教學';
   }
 };
 
   btnPlay.addEventListener('click', () => {
+    console.log('🔘 [Debug] 播放按鈕被點擊了');
     if (btnPlay.textContent.includes('停止')) {
+      console.log('⏹️ [Debug] 執行停止邏輯');
       // 執行中斷邏輯
       globalAbortSignal = Date.now();
       audioController.cancel();
@@ -1704,6 +1765,7 @@ function renderStartView() {
       // UI 復原
       btnPlay.textContent = '▶️ 開始播放教學';
     } else {
+      console.log('🎬 [Debug] 準備進入 playFullLesson()');
       playFullLesson();
     }
   });
