@@ -2874,7 +2874,7 @@ function ensureAdvancedSettingsControls() {
     <div style="margin-top: 15px; border-top: 1px dashed var(--danger); padding-top: 15px; display: flex; align-items: center; justify-content: space-between;">
       <label style="color: var(--danger); font-weight: bold; font-size: 0.9rem;"></label>
       <button type="button" class="btn secondary" style="padding: 6px 12px; font-size: 0.8rem; border-color: var(--danger); color: var(--danger); width: auto;" onclick="window.forceAppUpdate()">
-        ☢️ 重新整理同步雲端資料
+        ☢️ 更新並重新整理同步雲端資料
       </button>
     </div>
   `;
@@ -3977,7 +3977,7 @@ window.startOfflineTest = startOfflineTest;
 
 // ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
 async function forceAppUpdate() {
-  if (confirm('☢️ 確定要執行核彈級更新嗎？\n\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響學習紀錄\n解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
     try {
       showInfo('正在執行深度清除...');
 
