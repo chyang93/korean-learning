@@ -536,43 +536,34 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        this.stopIndicator();
-        resolve();
-      };
-
       // 🟢 新增：逾時保護，防止 LINE 瀏覽器無聲卡死
       const timeout = setTimeout(() => {
         console.warn('⏳ [Debug] 語音播放逾時，強迫跳過');
-        if (typeof options.onTimeout === 'function') {
-          try {
-            options.onTimeout();
-          } catch (timeoutError) {
-            console.error('語音逾時回呼失敗:', timeoutError);
-          }
-        }
-        finish();
+        this.stopIndicator();
+        resolve();
       }, 5000);
 
       try {
         speak(text, {
           onstart: () => {
-            if (settled) return;
             this.startIndicator();
           },
           onend: () => {
-            finish();
+            clearTimeout(timeout);
+            this.stopIndicator();
+            resolve();
           },
           onerror: () => {
-            finish();
+            clearTimeout(timeout);
+            this.stopIndicator();
+            // 這裡不再 reject 報錯，避免中斷教學流程
+            resolve();
           }
         });
       } catch (error) {
-        finish();
+        clearTimeout(timeout);
+        this.stopIndicator();
+        resolve();
       }
     });
   },
@@ -604,28 +595,62 @@ function checkLineAndNotify() {
   const overlay = document.createElement('div');
   overlay.id = 'line-browser-overlay';
   overlay.style = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.9); z-index: 10000;
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at 20% 20%, rgba(255, 82, 82, 0.18), rgba(0, 0, 0, 0.9) 45%),
+      linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(8, 16, 24, 0.94));
+    backdrop-filter: blur(4px);
+    z-index: 10000;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 30px; text-align: center; color: white;
+    padding: 24px; text-align: center; color: white;
   `;
 
   overlay.innerHTML = `
-    <div style="font-size: 3rem; margin-bottom: 20px;">🚫</div>
-    <h2 style="color: #ff4d4d;">LINE 瀏覽器可能不支援語音</h2>
-    <p style="margin: 15px 0; line-height: 1.6;">
-      LINE 內建瀏覽器可能會封鎖部分機型韓文語音功能。<br>
-      請點擊右上角或右下角的 <b style="color: #00d2ff;">「...」</b><br>
-      並選擇 <b style="color: #00d2ff;">「在預設瀏覽器中開啟」</b>
-    </p>
-    <label style="margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; cursor: pointer;">
-      <input id="lineOverlayNoShowToday" type="checkbox" style="width: 16px; height: 16px;" />
-      今日不再顯示
-    </label>
-    <button type="button" class="btn" style="margin-top: 20px; background: #333;">我知道了，繼續瀏覽(無聲)</button>
+    <div style="
+      width: min(92vw, 460px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(11, 18, 25, 0.96), rgba(6, 10, 14, 0.96));
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      padding: 24px 20px;
+    ">
+      <div style="font-size: 3.2rem; margin-bottom: 10px; line-height: 1;">🚫</div>
+      <h2 style="margin: 0; color: #ff6b6b; font-size: 1.65rem; letter-spacing: 0.3px;">LINE 瀏覽器語音及部分功能受限</h2>
+      <p style="margin: 14px 0 0; line-height: 1.75; color: #d7e2ee; font-size: 1rem;">
+        LINE 內建瀏覽器可能會封鎖部分機型的韓文語音播放及學習播放功能。<br>
+        請點擊右上角或右下角的 <b style="color: #57dbff;">「...」</b><br>
+        並選擇 <b style="color: #57dbff;">「在預設瀏覽器中開啟」</b>
+      </p>
+
+      <div style="
+        margin: 14px auto 0;
+        border: 1px solid rgba(87, 219, 255, 0.35);
+        border-radius: 12px;
+        background: rgba(7, 40, 58, 0.45);
+        color: #b9efff;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      ">
+        建議使用 <b style="color: #ffffff;">Google Chrome</b> 或 <b style="color: #ffffff;">Microsoft Edge</b>，語音功能較穩定。
+      </div>
+
+      <label style="margin-top: 14px; display: inline-flex; align-items: center; gap: 8px; font-size: 0.95rem; color: #e8f1fb; cursor: pointer;">
+        <input id="lineOverlayNoShowToday" type="checkbox" style="width: 16px; height: 16px; accent-color: #57dbff;" />
+        今日不再顯示
+      </label>
+
+      <button id="lineOverlayCloseBtn" type="button" class="btn" style="
+        margin-top: 18px;
+        background: linear-gradient(180deg, #3f4a56, #2e3742);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        color: #f6fbff;
+        padding: 10px 16px;
+        width: 100%;
+      ">我知道了，繼續瀏覽（無聲）</button>
+    </div>
   `;
 
-  const closeBtn = overlay.querySelector('button');
+  const closeBtn = overlay.querySelector('#lineOverlayCloseBtn');
   const noShowToday = overlay.querySelector('#lineOverlayNoShowToday');
 
   closeBtn?.addEventListener('click', () => {
@@ -1556,30 +1581,6 @@ function renderStartView() {
   let lessonId = 0;
   let localAbortSignal = globalAbortSignal;
 
-  const revealAllChapterContent = () => {
-    cancelSpeech();
-    globalAbortSignal += 1;
-
-    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
-      if (el) el.className = 'stage-card layout-full';
-    });
-    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
-
-    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
-      btn.dataset.played = 'true';
-      btn.style.color = 'var(--neon-color)';
-    });
-
-    unlockNextButton();
-    const hintEl = container.querySelector('#completionHint');
-    if (hintEl) hintEl.innerHTML = '✅ 已略過教學，已解鎖下一課！';
-
-    const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
-    if (showAllBtn) {
-      showAllBtn.style.display = 'none';
-    }
-  };
-
   const safeSpeak = async (text, id) => {
     if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
 
@@ -1598,10 +1599,7 @@ function renderStartView() {
 
       setSpeed(userSettings.audioSpeed || 1.0);
 
-      await audioController.speak(speakText, {
-        cancelFirst: false,
-        onTimeout: revealAllChapterContent
-      });
+      await audioController.speak(speakText, { cancelFirst: false });
 
       setSpeed(userSettings.audioSpeed || 1.0);
       if (lessonId !== id || localAbortSignal !== globalAbortSignal) throw 'ABORT';
@@ -1814,7 +1812,28 @@ function renderStartView() {
   container.querySelector('#btnRestartLesson').addEventListener('click', () => { globalAbortSignal = Date.now(); audioController.cancel(); renderStartView(); });
   const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
   showAllBtn?.addEventListener('click', () => {
-    revealAllChapterContent();
+    cancelSpeech();
+    globalAbortSignal += 1;
+
+    // 1. 顯示所有隱藏區塊（同時保留舊節點命名相容）
+    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
+      if (el) el.className = 'stage-card layout-full';
+    });
+    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
+
+    // 2. 將所有播放按鈕標記為已讀 (視覺回饋)
+    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
+      btn.dataset.played = 'true';
+      btn.style.color = 'var(--neon-color)';
+    });
+
+    // 3. 直接解鎖「前往下一課」按鈕並更新提示
+    unlockNextButton();
+    const hintEl = container.querySelector('#completionHint');
+    if (hintEl) hintEl.innerHTML = '✅ 已略過教學，已解鎖下一課！';
+
+    // 4. 隱藏「全部顯示」按鈕本身
+    showAllBtn.style.display = 'none';
   });
 
   // 🟢 新增這段：綁定「重聽解析」按鈕
@@ -3966,9 +3985,9 @@ async function startOfflineTest(chapterPart) {
 
 window.startOfflineTest = startOfflineTest;
 
-// ☢️ 更新：解除 SW + 清空快取 + 刷新
+// ☢️ 核彈更新：解除 SW + 清空快取 + 刷新
 async function forceAppUpdate() {
-  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響紀錄\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
+  if (confirm('☢️ 確定要執行更新嗎？\n此功能不會影響學習紀錄\n這會解除註冊 Service Worker 並清除所有圖片、JSON 快取，接著重新啟動系統。')) {
     try {
       showInfo('正在執行深度清除...');
 
@@ -4000,7 +4019,7 @@ async function forceAppUpdate() {
       showInfo(`✅ 清除完成，版本 ${versionText}，正在重新載入最新版本...`);
       setTimeout(() => window.location.reload(true), 900);
     } catch (err) {
-      console.error('更新失敗:', err);
+      console.error('核彈更新失敗:', err);
       alert('更新失敗，請手動清理系統快取。');
     }
   }
