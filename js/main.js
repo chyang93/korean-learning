@@ -155,7 +155,14 @@ registerServiceWorker();
 
 let globalAbortSignal = 0;
 let shouldJumpAfterAssessment = false;
+let isLessonPlaying = false;
 const OFFLINE_RESULTS_KEY = 'offline_test_results';
+
+function stopLessonPlayback() {
+  globalAbortSignal = Date.now();
+  isLessonPlaying = false;
+  audioController.cancel();
+}
 
 const routes = ['start', 'vocabulary', 'pronunciation', 'vocab-test', 'grammar', 'irregular', 'chat'];
 const MENU_VIEW_ROUTE_MAP = {
@@ -928,6 +935,8 @@ function bindSettingsDialog() {
 
   // 儲存設定
   saveBtn.addEventListener('click', () => {
+    const currentRoute = resolveRouteFromHash();
+    const isPlayingOnStartRoute = currentRoute === 'start' && isLessonPlaying === true;
     const prevSettings = getState().settings;
     const showPronunciationHints = hintCheckbox.checked;
     const liaisonContrast = contrastCheckbox.checked;
@@ -973,6 +982,7 @@ function bindSettingsDialog() {
     }
 
     const jumpSelect = document.getElementById('jumpLevelSelect');
+    const hasJumpRequest = Boolean(jumpSelect && jumpSelect.value !== 'none');
     if (jumpSelect && jumpSelect.value !== 'none') {
       const targetId = Number(jumpSelect.value);
       const latestState = getState();
@@ -1010,7 +1020,17 @@ function bindSettingsDialog() {
     // 🟢 4. 觸發一次背景靜默上傳，確保最新的設定與進度同步到雲端
     void triggerCloudSave();
 
-    refreshCurrentRoute(); 
+    if (isPlayingOnStartRoute && !hasJumpRequest) {
+      showInfo('✅ 設定已儲存，會在目前播放中即時套用。');
+      return;
+    }
+
+    if (isPlayingOnStartRoute && hasJumpRequest) {
+      stopLessonPlayback();
+      showInfo('⚙️ 已停止目前教學播放並套用跳級設定。');
+    }
+
+    refreshCurrentRoute();
   });
 }
 
@@ -1703,6 +1723,7 @@ function renderStartView() {
     lessonId = runId;
     globalAbortSignal = runId;
     localAbortSignal = runId;
+    isLessonPlaying = true;
 
     audioController.cancel();
     [stageGram, stageExam, stageVocab].forEach(el => el.className = 'stage-card hidden');
@@ -1791,17 +1812,18 @@ function renderStartView() {
 
       void triggerCloudSave(); // 靜默背景同步
       btnPlay.textContent = '🔄 重新播放';
-  } catch (e) {
-    if (e !== 'ABORT') console.error(e);
-    btnPlay.textContent = '▶️ 開始播放教學';
-  }
-};
+    } catch (e) {
+      if (e !== 'ABORT') console.error(e);
+      btnPlay.textContent = '▶️ 開始播放教學';
+    } finally {
+      isLessonPlaying = false;
+    }
+  };
 
   btnPlay.addEventListener('click', () => {
     if (btnPlay.textContent.includes('停止')) {
       // 執行中斷邏輯
-      globalAbortSignal = Date.now();
-      audioController.cancel();
+      stopLessonPlayback();
 
       // UI 復原
       btnPlay.textContent = '▶️ 開始播放教學';
@@ -1809,7 +1831,10 @@ function renderStartView() {
       playFullLesson();
     }
   });
-  container.querySelector('#btnRestartLesson').addEventListener('click', () => { globalAbortSignal = Date.now(); audioController.cancel(); renderStartView(); });
+  container.querySelector('#btnRestartLesson').addEventListener('click', () => {
+    stopLessonPlayback();
+    renderStartView();
+  });
   const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
   showAllBtn?.addEventListener('click', () => {
     cancelSpeech();
