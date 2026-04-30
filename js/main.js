@@ -1613,7 +1613,7 @@ function renderStartView() {
     }
 
     for (const chunk of chunks) {
-      const speakText = chunk.replace(/[.,!?:：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$]/g, '').trim();
+      const speakText = chunk.replace(/[.,!?:;；：，。！？、…\[\]\(\)（）【】「」『』\-+~\/|*=#^&_@$]/g, '').trim();
       if (!speakText) continue;
       const userSettings = getState().settings;
 
@@ -2204,7 +2204,7 @@ function renderVocabItem(item, learned, bookmarked) {
 function renderVocabTestView() {
   const container = document.getElementById('view-vocab-test');
   const pool = getVocabTestPool();
-  const maxQuestions = Math.max(1, Math.min(30, pool.length));
+  const maxQuestions = Math.max(1, pool.length);
 
   if (uiState.vocabTestCount > maxQuestions) {
     uiState.vocabTestCount = maxQuestions;
