@@ -543,10 +543,22 @@ const audioController = {
     }
 
     return new Promise((resolve) => {
+      const notifyFailure = () => {
+        if (!options?.skipFailureNotice) {
+          showInfo('⚠️ 語音播放異常，已自動略過');
+        }
+        if (typeof options?.onFailure === 'function') {
+          options.onFailure();
+        } else if (typeof window.onLessonAudioFailure === 'function') {
+          window.onLessonAudioFailure();
+        }
+      };
+
       // 🟢 新增：逾時保護，防止 LINE 瀏覽器無聲卡死
       const timeout = setTimeout(() => {
         console.warn('⏳ [Debug] 語音播放逾時，強迫跳過');
         this.stopIndicator();
+        notifyFailure();
         resolve();
       }, 5000);
 
@@ -563,6 +575,7 @@ const audioController = {
           onerror: () => {
             clearTimeout(timeout);
             this.stopIndicator();
+            notifyFailure();
             // 這裡不再 reject 報錯，避免中斷教學流程
             resolve();
           }
@@ -570,6 +583,7 @@ const audioController = {
       } catch (error) {
         clearTimeout(timeout);
         this.stopIndicator();
+        notifyFailure();
         resolve();
       }
     });
@@ -1597,6 +1611,7 @@ function renderStartView() {
   const stageExam = container.querySelector('#stage-examples');
   const stageVocab = container.querySelector('#stage-vocab');
   const btnPlay = container.querySelector('#btnPlayLesson');
+  const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
 
   let lessonId = 0;
   let localAbortSignal = globalAbortSignal;
@@ -1646,6 +1661,40 @@ function renderStartView() {
     }
   };
   window.unlockNextButtonGlobal = unlockNextButton;
+
+  let lessonFailureHandled = false;
+  const showAllLessonContent = (reasonText = '') => {
+    if (lessonFailureHandled) return;
+    lessonFailureHandled = true;
+
+    cancelSpeech();
+    globalAbortSignal += 1;
+
+    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
+      if (el) el.className = 'stage-card layout-full';
+    });
+    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
+
+    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
+      btn.dataset.played = 'true';
+      btn.style.color = 'var(--neon-color)';
+    });
+
+    unlockNextButton();
+    const hintEl = container.querySelector('#completionHint');
+    if (hintEl) {
+      hintEl.innerHTML = reasonText || '✅ 已略過教學，已解鎖下一課！';
+    }
+
+    if (showAllBtn) {
+      showAllBtn.style.display = 'none';
+    }
+  };
+  window.onLessonAudioFailure = () => {
+    if (!isLessonPlaying) return;
+    if (!container?.isConnected) return;
+    showAllLessonContent('⚠️ 偵測到語音播放異常，已自動顯示全部');
+  };
 
   const playSegmentInner = async (segment, runId) => {
     if (segment === 'grammar') {
@@ -1817,6 +1866,9 @@ function renderStartView() {
       btnPlay.textContent = '▶️ 開始播放教學';
     } finally {
       isLessonPlaying = false;
+      if (window.onLessonAudioFailure) {
+        delete window.onLessonAudioFailure;
+      }
     }
   };
 
@@ -1835,30 +1887,8 @@ function renderStartView() {
     stopLessonPlayback();
     renderStartView();
   });
-  const showAllBtn = container.querySelector('#btnShowAll, #show-all-btn');
   showAllBtn?.addEventListener('click', () => {
-    cancelSpeech();
-    globalAbortSignal += 1;
-
-    // 1. 顯示所有隱藏區塊（同時保留舊節點命名相容）
-    [stageDial, stageGram, stageExam, stageVocab].forEach((el) => {
-      if (el) el.className = 'stage-card layout-full';
-    });
-    container.querySelectorAll('.example-item.hidden').forEach((el) => el.classList.remove('hidden'));
-
-    // 2. 將所有播放按鈕標記為已讀 (視覺回饋)
-    container.querySelectorAll('.play-sentence-btn').forEach((btn) => {
-      btn.dataset.played = 'true';
-      btn.style.color = 'var(--neon-color)';
-    });
-
-    // 3. 直接解鎖「前往下一課」按鈕並更新提示
-    unlockNextButton();
-    const hintEl = container.querySelector('#completionHint');
-    if (hintEl) hintEl.innerHTML = '✅ 已略過教學，已解鎖下一課！';
-
-    // 4. 隱藏「全部顯示」按鈕本身
-    showAllBtn.style.display = 'none';
+    showAllLessonContent();
   });
 
   // 🟢 新增這段：綁定「重聽解析」按鈕

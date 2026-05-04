@@ -1,6 +1,4 @@
 const STATE_KEY = 'koreanAppState';
-const API_KEY_LOCAL = 'koreanAppApiKeyLocal';
-const API_KEY_SESSION = 'koreanAppApiKeySession';
 let progressEventsBound = false;
 
 const defaultState = {
@@ -30,7 +28,6 @@ const defaultState = {
   },
   settings: {
     audioSpeed: 1.0,
-    rememberApiKey: false,
     showProgressOnHome: true,
     showPronunciationHints: true,
     liaisonContrast: false,
@@ -329,32 +326,6 @@ export function bindProgressEvents(target = window) {
   progressEventsBound = true;
 }
 
-export function getApiKey() {
-  const sessionKey = sessionStorage.getItem(API_KEY_SESSION);
-  if (sessionKey) {
-    return sessionKey;
-  }
-  return localStorage.getItem(API_KEY_LOCAL) || '';
-}
-
-export function setApiKey(apiKey, remember) {
-  if (!apiKey) {
-    return;
-  }
-  if (remember) {
-    localStorage.setItem(API_KEY_LOCAL, apiKey);
-    sessionStorage.removeItem(API_KEY_SESSION);
-  } else {
-    sessionStorage.setItem(API_KEY_SESSION, apiKey);
-    localStorage.removeItem(API_KEY_LOCAL);
-  }
-  patchSettings({ rememberApiKey: remember });
-}
-
-export function clearApiKey() {
-  localStorage.removeItem(API_KEY_LOCAL);
-  sessionStorage.removeItem(API_KEY_SESSION);
-}
 
 export function getChatHistory() {
   const state = getState();
