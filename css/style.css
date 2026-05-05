@@ -444,6 +444,96 @@ body.light-mode {
   flex-wrap: wrap;
 }
 
+.chapter-filter-item span,
+.chapter-filter-label {
+  white-space: nowrap;
+}
+
+.folder-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.folder-add-btn,
+.folder-manage-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.folder-tag-list {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.folder-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--neon-cyan);
+}
+
+.folder-tag i {
+  font-size: 0.7rem;
+}
+
+.folder-checkbox-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  max-height: 45vh;
+  overflow: auto;
+}
+
+.folder-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: rgba(0, 210, 255, 0.05);
+}
+
+.folder-manage-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.folder-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.folder-manage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.folder-manage-name {
+  font-weight: 700;
+  color: var(--neon-cyan);
+}
+
+.folder-manage-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -1322,6 +1412,12 @@ option {
   margin-bottom: 10px;
 }
 
+.search-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 #chapterSearchInput {
   flex: 1;
   min-width: 0;
@@ -1333,7 +1429,24 @@ option {
   color: var(--text-main);
 }
 
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  color: var(--text-main);
+}
+
 #chapterSearchInput:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 210, 255, 0.25);
+}
+
+.search-input:focus {
   outline: none;
   border-color: var(--neon-cyan);
   box-shadow: 0 0 8px rgba(0, 210, 255, 0.25);

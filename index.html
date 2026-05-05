@@ -197,6 +197,49 @@
     </div>
   </dialog>
 
+  <dialog id="folderSelectDialog" class="settings-dialog">
+    <form method="dialog">
+      <h2>加入資料夾</h2>
+      <div id="folderSelectList" class="folder-checkbox-list"></div>
+      <div class="dialog-actions">
+        <button type="button" id="folderSelectSaveBtn" class="btn">確認</button>
+        <button type="submit" class="btn secondary">取消</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="folderManageDialog" class="settings-dialog">
+    <div style="padding: 16px;">
+      <h2>管理資料夾</h2>
+      <div id="folderManageList" class="folder-manage-list"></div>
+      <div class="dialog-actions">
+        <button type="button" id="folderManageCloseBtn" class="btn secondary">關閉</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="folderFilterDialog" class="settings-dialog" style="width: 95%; max-width: 550px; max-height: 85vh; padding: 0; border-radius: 12px; overflow: hidden;">
+    <div style="padding: 15px; background: var(--bg-dark); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="color: var(--neon-cyan); margin: 0; font-size: 1.2rem;"><i class="fas fa-folder-open"></i> 選取資料夾</h2>
+      <span id="folderFilterCount" style="color: var(--neon-color); font-weight: bold; font-size: 1rem;">已選 0 個</span>
+    </div>
+    <div style="padding: 15px; background: var(--card-bg);">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; border-bottom: 1px dashed var(--border-color); padding-bottom: 10px;">
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="selectAllFolderFilters()">全選</button>
+        <button class="btn secondary" style="padding: 6px 10px; font-size: 0.85rem;" onclick="clearAllFolderFilters()">清空</button>
+      </div>
+      <div class="chapter-search-row">
+        <input id="folderFilterSearchInput" type="text" placeholder="搜尋資料夾名稱" />
+        <span class="message">多選可疊加篩選</span>
+      </div>
+      <div id="folderFilterList" class="folder-checkbox-list" style="max-height: calc(85vh - 220px);"></div>
+    </div>
+    <div style="text-align: right; padding: 15px; background: var(--bg-dark); border-top: 1px solid var(--border-color);">
+      <button class="btn secondary" onclick="document.getElementById('folderFilterDialog').close()" style="margin-right: 10px;">取消</button>
+      <button class="btn" onclick="saveFolderSelection()" style="background-color: var(--neon-color); color: #fff; border: none; font-weight: bold;">確認</button>
+    </div>
+  </dialog>
+
   <div id="offline-toast" class="offline-toast hidden">
     <i class="fas fa-wifi-slash"></i>
     <span>目前處於離線模式，依然可以繼續學習</span>

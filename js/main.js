@@ -1,6 +1,10 @@
 import { loadGrammar, loadIrregularData, loadPronunciation, loadVocabulary } from './dataLoader.js';
 import {
   getState,
+  addFolder,
+  renameFolder,
+  deleteFolder,
+  updateWordFolders,
   patchProgress,
   patchSettings,
   setMode,
@@ -181,16 +185,21 @@ let vocabData = [];
 let irregularMap = {};
 let vocabInfiniteObserver = null;
 let historyInfiniteObserver = null;
+let currentFolderWordId = null;
 
 const uiState = {
   vocabPart: 'all',
   vocabFilter: 'all',
+  vocabFolderId: 'all',
+  vocabSearch: '',
+  vocabSearchDraft: '',
   vocabPageSize: 30,
   vocabDisplayLimit: 30,
   pronunciationChapter: 'all',
   pronunciationFilter: 'all',
   vocabTestSource: 'all',
   vocabTestChapters: '',
+  vocabTestFolderIds: '',
   vocabTestCount: 10,
   vocabTestDirection: 'ko-to-zh',
   vocabTestSession: null,
@@ -198,12 +207,15 @@ const uiState = {
   historyDisplayLimit: 10,
   grammarPart: 'all',
   grammarFilter: 'all',
+  grammarSearch: '',
+  grammarSearchDraft: '',
   irregularType: 'ㅂ',
   chatMission: null,
   chatPracticeType: 'mixed',
   chatPracticeChapters: '',
   chatVocabChapters: '',
   chatGrammarChapters: '',
+  chatVocabFolderIds: '',
   chatInputType: 'reading',
   chatDirection: 'to-ko',
   learningMode: 'grammar',
@@ -239,6 +251,37 @@ function mergeStateForConflict(localState = {}, cloudState = {}) {
     ...localState,
     progress: mergeProgressArrays(localState.progress || {}, cloudState.progress || {})
   };
+
+  const combinedFolders = new Map();
+  [...(cloudState.folders || []), ...(localState.folders || [])].forEach((folder) => {
+    if (!folder || !folder.id) {
+      return;
+    }
+    combinedFolders.set(String(folder.id), {
+      id: String(folder.id),
+      name: String(folder.name || ''),
+      createdAt: Number(folder.createdAt) || 0
+    });
+  });
+  merged.folders = Array.from(combinedFolders.values()).sort((a, b) => a.createdAt - b.createdAt);
+
+  const validFolderIds = new Set((merged.folders || []).map((folder) => String(folder.id)));
+  const combinedWordFolderMap = {};
+  [cloudState.wordFolderMap, localState.wordFolderMap].forEach((map) => {
+    if (!map || typeof map !== 'object') {
+      return;
+    }
+    Object.entries(map).forEach(([wordId, folderIds]) => {
+      const current = combinedWordFolderMap[wordId] || [];
+      const next = uniqueArray([...(current || []), ...((Array.isArray(folderIds) ? folderIds : []))]
+        .map((id) => String(id))
+        .filter((id) => validFolderIds.has(id)));
+      if (next.length > 0) {
+        combinedWordFolderMap[String(wordId)] = next;
+      }
+    });
+  });
+  merged.wordFolderMap = combinedWordFolderMap;
 
   const combinedHistory = [...(localState.testHistory || []), ...(cloudState.testHistory || [])];
   merged.testHistory = Array.from(new Map(combinedHistory.map(item => [item.id, item])).values()).sort((a, b) => b.id - a.id);
@@ -544,7 +587,7 @@ const audioController = {
 
     return new Promise((resolve) => {
       const notifyFailure = () => {
-        if (!options?.skipFailureNotice) {
+        if (!options?.skipFailureNotice && isLineBrowser()) {
           showInfo('⚠️ 語音播放異常，已自動略過');
         }
         if (typeof options?.onFailure === 'function') {
@@ -593,6 +636,11 @@ const audioController = {
     return promise.finally(() => this.stopIndicator());
   }
 };
+
+function isLineBrowser() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  return ua.indexOf('Line') > -1;
+}
 
 function checkLineAndNotify() {
   const LINE_OVERLAY_SNOOZE_KEY = 'korean_line_overlay_hide_until_date';
@@ -701,6 +749,7 @@ async function init() {
   bindSettingsDialog();
   bindLevelAssessmentDialog();
   bindTestHistoryDialog();
+  bindFolderDialogs();
   updateUserUI(auth.currentUser);
   // 🟢 修正：當標記紀錄視窗關閉時，強制停止電腦朗讀
   document.getElementById('testBookmarkDialog')?.addEventListener('close', () => {
@@ -2046,12 +2095,441 @@ function getBookmarkedVocabIdSet(state = getState()) {
   return ids;
 }
 
+function getSortedFolders(state = getState()) {
+  return (state.folders || [])
+    .map((folder) => ({
+      id: String(folder.id),
+      name: String(folder.name || ''),
+      createdAt: Number(folder.createdAt) || 0
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+function getFolderCounts(state = getState()) {
+  const counts = new Map();
+  const map = state.wordFolderMap || {};
+  Object.values(map).forEach((folderIds) => {
+    (Array.isArray(folderIds) ? folderIds : []).forEach((id) => {
+      const key = String(id);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  });
+  return counts;
+}
+
+function getFolderNameMap(state = getState()) {
+  const map = new Map();
+  getSortedFolders(state).forEach((folder) => {
+    map.set(String(folder.id), folder.name);
+  });
+  return map;
+}
+
+function getWordFolderIds(wordId, state = getState()) {
+  const ids = state.wordFolderMap?.[String(wordId)] || [];
+  return (Array.isArray(ids) ? ids : []).map((id) => String(id));
+}
+
+function filterVocabByFolder(list, folderId, state = getState()) {
+  if (!folderId || folderId === 'all') {
+    return list;
+  }
+  const map = state.wordFolderMap || {};
+  const targetId = String(folderId);
+  return list.filter((item) => {
+    const folderIds = map[String(item.id)] || [];
+    return Array.isArray(folderIds) && folderIds.map((id) => String(id)).includes(targetId);
+  });
+}
+
+function renderFolderOptionsHtml(selectedId, state = getState()) {
+  const folders = getSortedFolders(state);
+  const counts = getFolderCounts(state);
+  const options = [
+    `<option value="all" ${selectedId === 'all' ? 'selected' : ''}>全部</option>`
+  ];
+
+  folders.forEach((folder) => {
+    const count = counts.get(String(folder.id)) || 0;
+    const label = `${escapeHtml(folder.name)}｜${count}`;
+    options.push(
+      `<option value="${escapeAttr(folder.id)}" ${selectedId === folder.id ? 'selected' : ''}>${label}</option>`
+    );
+  });
+
+  return options.join('');
+}
+
+function renderFolderTagsHtml(folderIds, state = getState()) {
+  if (!Array.isArray(folderIds) || folderIds.length === 0) {
+    return '';
+  }
+  const nameMap = getFolderNameMap(state);
+  return folderIds
+    .map((id) => ({ id, name: nameMap.get(String(id)) }))
+    .filter((folder) => folder.name)
+    .map((folder) => `
+      <span class="folder-tag"><i class="fas fa-folder"></i>${escapeHtml(folder.name)}</span>
+    `)
+    .join('');
+}
+
+function validateFolderName(input, folders, excludeId = null) {
+  const name = String(input || '').trim();
+  if (name.length < 1 || name.length > 20) {
+    return { valid: false, message: '請輸入 1-20 字的資料夾名稱' };
+  }
+  const normalized = name.toLowerCase();
+  const isDuplicate = (folders || []).some((folder) => {
+    if (excludeId && String(folder.id) === String(excludeId)) {
+      return false;
+    }
+    return String(folder.name || '').toLowerCase() === normalized;
+  });
+  if (isDuplicate) {
+    return { valid: false, message: '資料夾名稱重複' };
+  }
+  return { valid: true, name };
+}
+
+function parseFolderIdList(value) {
+  if (!value || String(value).trim() === '') {
+    return [];
+  }
+  return String(value)
+    .split(',')
+    .map((id) => String(id).trim())
+    .filter((id) => id);
+}
+
+function normalizeFolderIdList(value, state = getState()) {
+  const folders = getSortedFolders(state);
+  const validIds = new Set(folders.map((folder) => String(folder.id)));
+  const normalized = uniqueArray(parseFolderIdList(value).filter((id) => validIds.has(id)));
+  return normalized;
+}
+
+function renderFolderFilterTags(value, state = getState()) {
+  const selected = normalizeFolderIdList(value, state);
+  if (selected.length === 0) {
+    return '<span class="tag-placeholder">全部資料夾</span>';
+  }
+
+  const nameMap = getFolderNameMap(state);
+  if (selected.length > 4) {
+    const preview = [selected[0], selected[1], selected[2], selected[selected.length - 1]]
+      .map((id) => nameMap.get(String(id)))
+      .filter((name) => name)
+      .map((name) => `<span class="tag-chip">${escapeHtml(name)}</span>`)
+      .join('');
+    return `${preview}<span class="tag-chip tag-chip-summary">共${selected.length}個</span>`;
+  }
+
+  return selected
+    .map((id) => nameMap.get(String(id)))
+    .filter((name) => name)
+    .map((name) => `<span class="tag-chip">${escapeHtml(name)}</span>`)
+    .join('');
+}
+
+function filterVocabByFolders(list, value, state = getState()) {
+  const selected = normalizeFolderIdList(value, state);
+  if (selected.length === 0) {
+    return list;
+  }
+  const map = state.wordFolderMap || {};
+  const selectedSet = new Set(selected.map((id) => String(id)));
+  return list.filter((item) => {
+    const folderIds = map[String(item.id)] || [];
+    const normalized = (Array.isArray(folderIds) ? folderIds : []).map((id) => String(id));
+    return normalized.some((id) => selectedSet.has(id));
+  });
+}
+
+let currentFolderSelectingStateKey = null;
+let currentFolderSelectingIds = new Set();
+let currentFolderAvailableIds = [];
+let currentFolderRenderList = null;
+
+function openFolderSelector(stateKey) {
+  const dialog = document.getElementById('folderFilterDialog');
+  const list = document.getElementById('folderFilterList');
+  const searchInput = document.getElementById('folderFilterSearchInput');
+  const countDisplay = document.getElementById('folderFilterCount');
+  if (!dialog || !list) {
+    return;
+  }
+
+  const state = getState();
+  const folders = getSortedFolders(state);
+  currentFolderSelectingStateKey = stateKey;
+  currentFolderSelectingIds = new Set(normalizeFolderIdList(uiState[stateKey], state));
+  currentFolderAvailableIds = folders.map((folder) => String(folder.id));
+
+  const renderList = (query = '') => {
+    const keyword = String(query || '').trim().toLowerCase();
+    const filtered = keyword
+      ? folders.filter((folder) => String(folder.name || '').toLowerCase().includes(keyword))
+      : folders;
+
+    list.innerHTML = filtered.map((folder) => {
+      const id = String(folder.id);
+      const checked = currentFolderSelectingIds.has(id) ? 'checked' : '';
+      return `
+        <label class="folder-checkbox-row">
+          <input type="checkbox" value="${escapeAttr(id)}" ${checked} />
+          <span>${escapeHtml(folder.name)}</span>
+        </label>
+      `;
+    }).join('') || '<div class="message" style="text-align: center;">尚未建立資料夾</div>';
+
+    list.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const id = String(input.value);
+        if (input.checked) {
+          currentFolderSelectingIds.add(id);
+        } else {
+          currentFolderSelectingIds.delete(id);
+        }
+        if (countDisplay) {
+          countDisplay.textContent = `已選 ${currentFolderSelectingIds.size} 個`;
+        }
+      });
+    });
+
+    if (countDisplay) {
+      countDisplay.textContent = `已選 ${currentFolderSelectingIds.size} 個`;
+    }
+  };
+
+  currentFolderRenderList = renderList;
+
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.oninput = () => renderList(searchInput.value);
+  }
+
+  renderList('');
+  dialog.showModal();
+}
+
+function selectAllFolderFilters() {
+  currentFolderSelectingIds = new Set(currentFolderAvailableIds.map((id) => String(id)));
+  currentFolderRenderList?.(document.getElementById('folderFilterSearchInput')?.value || '');
+}
+
+function clearAllFolderFilters() {
+  currentFolderSelectingIds = new Set();
+  currentFolderRenderList?.(document.getElementById('folderFilterSearchInput')?.value || '');
+}
+
+function saveFolderSelection() {
+  if (!currentFolderSelectingStateKey) {
+    document.getElementById('folderFilterDialog')?.close();
+    return;
+  }
+
+  const selected = [...currentFolderSelectingIds].sort();
+  uiState[currentFolderSelectingStateKey] = selected.join(', ');
+
+  if (currentFolderSelectingStateKey === 'vocabTestFolderIds') {
+    uiState.vocabTestSession = null;
+    renderVocabTestView();
+  } else if (currentFolderSelectingStateKey === 'chatVocabFolderIds') {
+    refreshChatMission();
+    renderChatView();
+  }
+
+  document.getElementById('folderFilterDialog')?.close();
+}
+
+function normalizeFolderFilter(selectedId, state = getState()) {
+  if (!selectedId || selectedId === 'all') {
+    return 'all';
+  }
+  const exists = getSortedFolders(state).some((folder) => String(folder.id) === String(selectedId));
+  return exists ? String(selectedId) : 'all';
+}
+
+function normalizeSearchQuery(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function textIncludesQuery(text, query) {
+  if (!query) {
+    return true;
+  }
+  return String(text || '').toLowerCase().includes(query);
+}
+
+function bindFolderDialogs() {
+  const selectDialog = document.getElementById('folderSelectDialog');
+  if (selectDialog && !selectDialog.dataset.bound) {
+    const saveBtn = selectDialog.querySelector('#folderSelectSaveBtn');
+    saveBtn?.addEventListener('click', () => {
+      if (!currentFolderWordId) {
+        selectDialog.close();
+        return;
+      }
+      const selected = Array.from(selectDialog.querySelectorAll('input[type="checkbox"]:checked'))
+        .map((input) => String(input.value));
+      updateWordFolders(currentFolderWordId, selected);
+      selectDialog.close();
+      currentFolderWordId = null;
+      renderVocabularyView();
+      void triggerCloudSave();
+    });
+    selectDialog.addEventListener('close', () => {
+      currentFolderWordId = null;
+    });
+    selectDialog.dataset.bound = '1';
+  }
+
+  const manageDialog = document.getElementById('folderManageDialog');
+  if (manageDialog && !manageDialog.dataset.bound) {
+    const closeBtn = manageDialog.querySelector('#folderManageCloseBtn');
+    closeBtn?.addEventListener('click', () => manageDialog.close());
+    manageDialog.dataset.bound = '1';
+  }
+}
+
+function openWordFolderDialog(wordId) {
+  const state = getState();
+  const folders = getSortedFolders(state);
+  if (folders.length === 0) {
+    alert('尚未建立資料夾');
+    return;
+  }
+
+  const dialog = document.getElementById('folderSelectDialog');
+  const list = document.getElementById('folderSelectList');
+  if (!dialog || !list) {
+    return;
+  }
+
+  currentFolderWordId = String(wordId);
+  const selected = new Set(getWordFolderIds(currentFolderWordId, state));
+
+  list.innerHTML = folders.map((folder) => {
+    const isChecked = selected.has(String(folder.id)) ? 'checked' : '';
+    return `
+      <label class="folder-checkbox-row">
+        <input type="checkbox" value="${escapeAttr(folder.id)}" ${isChecked} />
+        <span>${escapeHtml(folder.name)}</span>
+      </label>
+    `;
+  }).join('');
+
+  dialog.showModal();
+}
+
+function openFolderManageDialog() {
+  const dialog = document.getElementById('folderManageDialog');
+  if (!dialog) {
+    return;
+  }
+  renderFolderManageList();
+  dialog.showModal();
+}
+
+function renderFolderManageList() {
+  const dialog = document.getElementById('folderManageDialog');
+  const list = document.getElementById('folderManageList');
+  if (!dialog || !list) {
+    return;
+  }
+
+  const state = getState();
+  const folders = getSortedFolders(state);
+  const counts = getFolderCounts(state);
+
+  if (folders.length === 0) {
+    list.innerHTML = '<div class="message" style="text-align: center;">尚未建立資料夾</div>';
+    return;
+  }
+
+  list.innerHTML = folders.map((folder) => {
+    const count = counts.get(String(folder.id)) || 0;
+    return `
+      <div class="folder-manage-row">
+        <div class="folder-manage-info">
+          <div class="folder-manage-name">${escapeHtml(folder.name)}</div>
+          <div class="message">共 ${count} 筆</div>
+        </div>
+        <div class="folder-manage-actions">
+          <button class="btn secondary" data-action="rename-folder" data-id="${escapeAttr(folder.id)}">改名</button>
+          <button class="btn" data-action="delete-folder" data-id="${escapeAttr(folder.id)}" style="background: var(--danger); color: #fff; border-color: var(--danger);">刪除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('[data-action="rename-folder"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const folderId = btn.dataset.id;
+      const target = folders.find((folder) => String(folder.id) === String(folderId));
+      if (!target) {
+        return;
+      }
+      const nextName = prompt('請輸入新的資料夾名稱', target.name || '');
+      if (nextName === null) {
+        return;
+      }
+      const result = validateFolderName(nextName, folders, folderId);
+      if (!result.valid) {
+        alert(result.message);
+        return;
+      }
+      renameFolder(folderId, result.name);
+      void triggerCloudSave();
+      refreshCurrentRoute();
+      renderFolderManageList();
+    });
+  });
+
+  list.querySelectorAll('[data-action="delete-folder"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const folderId = btn.dataset.id;
+      if (!folderId) {
+        return;
+      }
+      if (!confirm('確定要刪除資料夾嗎？')) {
+        return;
+      }
+
+      deleteFolder(folderId);
+      if (uiState.vocabFolderId === folderId) {
+        uiState.vocabFolderId = 'all';
+      }
+      const nextVocabTestFolders = normalizeFolderIdList(uiState.vocabTestFolderIds, state)
+        .filter((id) => id !== String(folderId));
+      uiState.vocabTestFolderIds = nextVocabTestFolders.join(', ');
+      if (nextVocabTestFolders.length === 0) {
+        uiState.vocabTestSession = null;
+      }
+      const nextChatFolders = normalizeFolderIdList(uiState.chatVocabFolderIds, state)
+        .filter((id) => id !== String(folderId));
+      uiState.chatVocabFolderIds = nextChatFolders.join(', ');
+      if (nextChatFolders.length === 0) {
+        uiState.chatMission = null;
+      }
+
+      void triggerCloudSave();
+      refreshCurrentRoute();
+      renderFolderManageList();
+    });
+  });
+}
+
 function renderVocabularyView() {
   const container = document.getElementById('view-vocabulary');
   const state = getState();
   const learned = new Set(state.progress.learnedVocab);
   const bookmarked = getBookmarkedVocabIdSet(state);
   const maxVocabPart = Math.max(1, ...vocabData.map((item) => Number(item.part) || 0));
+  uiState.vocabFolderId = normalizeFolderFilter(uiState.vocabFolderId, state);
+  const vocabDraft = uiState.vocabSearchDraft !== undefined ? uiState.vocabSearchDraft : uiState.vocabSearch;
+  const vocabQuery = normalizeSearchQuery(uiState.vocabSearch);
 
   const filteredByPart =
     uiState.vocabPart === 'all'
@@ -2062,11 +2540,17 @@ function renderVocabularyView() {
     if (uiState.vocabFilter === 'learned') return learned.has(item.id);
     if (uiState.vocabFilter === 'unlearned') return !learned.has(item.id);
     if (uiState.vocabFilter === 'bookmarked') return bookmarked.has(String(item.id));
+    if (vocabQuery) {
+      return [item.ko, item.zh, item.meaning]
+        .some((field) => textIncludesQuery(field, vocabQuery));
+    }
     return true;
   });
 
-  const visibleList = list.slice(0, uiState.vocabDisplayLimit);
-  const hasMore = list.length > uiState.vocabDisplayLimit;
+  const folderFiltered = filterVocabByFolder(list, uiState.vocabFolderId, state);
+
+  const visibleList = folderFiltered.slice(0, uiState.vocabDisplayLimit);
+  const hasMore = folderFiltered.length > uiState.vocabDisplayLimit;
 
   container.innerHTML = `
     <div class="card">
@@ -2091,6 +2575,24 @@ function renderVocabularyView() {
         <button class="btn ${uiState.vocabFilter === 'unlearned' ? '' : 'secondary'}" data-vfilter="unlearned">未學習</button>
         <button class="btn ${uiState.vocabFilter === 'learned' ? '' : 'secondary'}" data-vfilter="learned">已學習</button>
         <button class="btn ${uiState.vocabFilter === 'bookmarked' ? '' : 'secondary'}" data-vfilter="bookmarked">標記</button>
+        <label for="vocabFolderSelect">資料夾：</label>
+        <div class="folder-filter-group">
+          <select id="vocabFolderSelect">${renderFolderOptionsHtml(uiState.vocabFolderId, state)}</select>
+          <button id="openFolderManageBtn" class="icon-btn folder-manage-btn" title="管理資料夾" type="button">
+            <i class="fas fa-gear"></i>
+          </button>
+        </div>
+        <button id="addFolderBtn" class="icon-btn folder-add-btn" title="新增資料夾" type="button">
+          <i class="fas fa-folder-plus"></i>
+        </button>
+      </div>
+
+      <div class="chapter-search-row">
+        <input id="vocabSearchInput" class="search-input" type="text" placeholder="搜尋單字或例句" value="${escapeAttr(vocabDraft || '')}" />
+        <div class="search-actions">
+          <button id="applyVocabSearchBtn" class="btn secondary" type="button">搜尋</button>
+          <button id="clearVocabSearchBtn" class="btn secondary" type="button">清空</button>
+        </div>
       </div>
 
       <div class="item-list" id="vocab-list-container" style="margin-top:15px;">
@@ -2107,6 +2609,57 @@ function renderVocabularyView() {
     uiState.vocabPart = event.target.value;
     uiState.vocabDisplayLimit = uiState.vocabPageSize;
     renderVocabularyView();
+  });
+
+  container.querySelector('#vocabFolderSelect')?.addEventListener('change', (event) => {
+    uiState.vocabFolderId = event.target.value;
+    uiState.vocabDisplayLimit = uiState.vocabPageSize;
+    renderVocabularyView();
+  });
+
+  const vocabSearchInput = container.querySelector('#vocabSearchInput');
+  vocabSearchInput?.addEventListener('input', (event) => {
+    uiState.vocabSearchDraft = event.target.value;
+  });
+  vocabSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      uiState.vocabSearch = uiState.vocabSearchDraft || '';
+      uiState.vocabDisplayLimit = uiState.vocabPageSize;
+      renderVocabularyView();
+    }
+  });
+  container.querySelector('#applyVocabSearchBtn')?.addEventListener('click', () => {
+    uiState.vocabSearch = uiState.vocabSearchDraft || '';
+    uiState.vocabDisplayLimit = uiState.vocabPageSize;
+    renderVocabularyView();
+  });
+  container.querySelector('#clearVocabSearchBtn')?.addEventListener('click', () => {
+    uiState.vocabSearch = '';
+    uiState.vocabSearchDraft = '';
+    uiState.vocabDisplayLimit = uiState.vocabPageSize;
+    renderVocabularyView();
+  });
+
+  container.querySelector('#addFolderBtn')?.addEventListener('click', () => {
+    const stateNow = getState();
+    const folders = getSortedFolders(stateNow);
+    const name = prompt('請輸入資料夾名稱');
+    if (name === null) {
+      return;
+    }
+    const result = validateFolderName(name, folders);
+    if (!result.valid) {
+      alert(result.message);
+      return;
+    }
+    addFolder(result.name);
+    void triggerCloudSave();
+    renderVocabularyView();
+  });
+
+  container.querySelector('#openFolderManageBtn')?.addEventListener('click', () => {
+    openFolderManageDialog();
   });
 
   container.querySelectorAll('[data-vfilter]').forEach((btn) => {
@@ -2171,6 +2724,12 @@ function renderVocabularyView() {
       void triggerCloudSave();
     });
   });
+
+  container.querySelectorAll('[data-action="open-vocab-folder"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openWordFolderDialog(btn.dataset.id);
+    });
+  });
 }
 
 function initVocabInfiniteScroll(hasMore) {
@@ -2202,6 +2761,9 @@ function renderVocabItem(item, learned, bookmarked) {
   const isBookmarked = bookmarked.has(String(item.id));
   const ko = maybeAnnotateKorean(item.ko || '');
   const zh = item.zh || item.meaning || '暫無解釋'; // 🟢 雙重防呆
+  const state = getState();
+  const folderIds = getWordFolderIds(item.id, state);
+  const folderTags = renderFolderTagsHtml(folderIds, state);
   
   // 🟢 加入防呆判定，避免沒有例句的單字導致程式崩潰
   const hasExample = item.example && (item.example.ko || item.example.zh);
@@ -2226,15 +2788,21 @@ function renderVocabItem(item, learned, bookmarked) {
         <button class="btn secondary" data-action="speak-vocab" data-text="${escapeAttr(item.ko)}">▶️</button>
         <button class="btn secondary" data-action="toggle-vocab-bookmark" data-id="${item.id}">${isBookmarked ? '取消標記' : '標記'}</button>
         <button class="btn secondary" data-action="toggle-vocab-learned" data-id="${item.id}">${isLearned ? '取消已學習' : '標為已學習'}</button>
+        <button class="btn secondary" data-action="open-vocab-folder" data-id="${item.id}">加入資料夾</button>
       </div>
+      ${folderTags ? `<div class="folder-tag-list">${folderTags}</div>` : ''}
     </div>
   `;
 }
 
 function renderVocabTestView() {
   const container = document.getElementById('view-vocab-test');
+  const state = getState();
   const pool = getVocabTestPool();
   const maxQuestions = Math.max(1, pool.length);
+  const poolHint = pool.length === 0
+    ? '題庫可用：0 題（請調整資料夾篩選）'
+    : `題庫可用：${pool.length} 題`;
 
   if (uiState.vocabTestCount > maxQuestions) {
     uiState.vocabTestCount = maxQuestions;
@@ -2272,6 +2840,13 @@ function renderVocabTestView() {
           <input id="testChaptersInput" type="hidden" value="${escapeAttr(uiState.vocabTestChapters || '')}" />
         </div>
         <div class="chapter-filter-group" style="flex: 1;">
+          <label style="display: block; margin-bottom: 5px;">資料夾：</label>
+          <div class="tag-input-container chapter-tag-container" onclick="openFolderSelector('vocabTestFolderIds')">
+            <div class="tags-wrapper">${renderFolderFilterTags(uiState.vocabTestFolderIds, state)}</div>
+            <button class="tag-add-btn"><i class="fas fa-plus"></i></button>
+          </div>
+        </div>
+        <div class="chapter-filter-group" style="flex: 1;">
           <label style="display: block; margin-bottom: 5px;">題數：</label>
           <input id="testCountInput" type="number" min="1" max="${maxQuestions}" value="${uiState.vocabTestCount}" style="width:100%;" />
         </div>
@@ -2282,7 +2857,7 @@ function renderVocabTestView() {
         <button onclick="openTestBookmarkDialog('vocab')" class="btn secondary" style="color: #ffc107; border-color: #ffc107;">⭐ 標記紀錄</button>
       </div>
 
-      <p class="message">題庫可用：${pool.length} 題</p>
+      <p class="message">${poolHint}</p>
 
       <div id="vocabTestBody" class="card" style="margin-top:10px;">
         ${renderVocabTestBody(session, isFinished)}
@@ -2301,6 +2876,7 @@ function renderVocabTestView() {
     uiState.vocabTestSession = null;
     renderVocabTestView();
   });
+
 
   container.querySelectorAll('[data-vdir]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -2725,6 +3301,7 @@ function getVocabTestPool() {
       pool = pool.filter((v) => parts.includes(Number(v.part)));
     }
   }
+  pool = filterVocabByFolders(pool, uiState.vocabTestFolderIds, state);
   return pool;
 }
 
@@ -2741,6 +3318,8 @@ function renderGrammarView() {
   const state = getState();
   const learned = new Set(state.progress.learnedGrammar);
   const bookmarked = new Set(state.progress.bookmarkedGrammar);
+  const grammarDraft = uiState.grammarSearchDraft !== undefined ? uiState.grammarSearchDraft : uiState.grammarSearch;
+  const grammarQuery = normalizeSearchQuery(uiState.grammarSearch);
   const grammarChapters = [...grammarData]
     .sort((left, right) => Number(left.id) - Number(right.id))
     .map((chapter) => ({
@@ -2756,6 +3335,14 @@ function renderGrammarView() {
     if (uiState.grammarFilter === 'learned') return learned.has(item.id);
     if (uiState.grammarFilter === 'unlearned') return !learned.has(item.id);
     if (uiState.grammarFilter === 'bookmarked') return bookmarked.has(item.id);
+    if (grammarQuery) {
+      const rule = item.grammarRule || {};
+      const exampleText = (item.examples || [])
+        .map((ex) => `${ex.ko || ''} ${ex.zh || ''}`)
+        .join(' ');
+      return [item.title, rule.explanation, rule.note, rule.rule, exampleText]
+        .some((field) => textIncludesQuery(field, grammarQuery));
+    }
     return true;
   });
 
@@ -2800,6 +3387,14 @@ function renderGrammarView() {
         <button class="btn ${uiState.grammarFilter === 'bookmarked' ? '' : 'secondary'}" data-gfilter="bookmarked">標記文法</button>
       </div>
 
+      <div class="chapter-search-row">
+        <input id="grammarSearchInput" class="search-input" type="text" placeholder="搜尋課程或例句" value="${escapeAttr(grammarDraft || '')}" />
+        <div class="search-actions">
+          <button id="applyGrammarSearchBtn" class="btn secondary" type="button">搜尋</button>
+          <button id="clearGrammarSearchBtn" class="btn secondary" type="button">清空</button>
+        </div>
+      </div>
+
       <div class="item-list" style="margin-top:10px;">
         ${list.length ? list.map((item) => renderGrammarItem(item, learned, bookmarked, state)).join('') : '<div class="card empty">此分類暫無文法</div>'}
       </div>
@@ -2829,6 +3424,27 @@ function renderGrammarView() {
       uiState.grammarFilter = btn.dataset.gfilter;
       renderGrammarView();
     });
+  });
+
+  const grammarSearchInput = container.querySelector('#grammarSearchInput');
+  grammarSearchInput?.addEventListener('input', (event) => {
+    uiState.grammarSearchDraft = event.target.value;
+  });
+  grammarSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      uiState.grammarSearch = uiState.grammarSearchDraft || '';
+      renderGrammarView();
+    }
+  });
+  container.querySelector('#applyGrammarSearchBtn')?.addEventListener('click', () => {
+    uiState.grammarSearch = uiState.grammarSearchDraft || '';
+    renderGrammarView();
+  });
+  container.querySelector('#clearGrammarSearchBtn')?.addEventListener('click', () => {
+    uiState.grammarSearch = '';
+    uiState.grammarSearchDraft = '';
+    renderGrammarView();
   });
 
   container.querySelectorAll('[data-action="play-grammar-example"]').forEach((btn) => {
@@ -3049,6 +3665,11 @@ function renderIrregularView() {
 
 function renderChatView() {
   const container = document.getElementById('view-chat');
+  const state = getState();
+  const { pool } = buildChatPool();
+  const poolHint = pool.length === 0
+    ? '題庫可用：0 題（請調整資料夾篩選）'
+    : `題庫可用：${pool.length} 題`;
   if (!uiState.chatMission) refreshChatMission();
   const mission = uiState.chatMission;
   const isListening = uiState.chatInputType === 'listening';
@@ -3091,6 +3712,15 @@ function renderChatView() {
             </div>
           </div>` : ''}
 
+          ${(uiState.chatPracticeType === 'vocab' || uiState.chatPracticeType === 'mixed') ? `
+          <div class="chapter-filter-item" style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 0.85rem; color: var(--neon-cyan); min-width: 40px;">資料夾</span>
+            <div class="tag-input-container chapter-tag-container" onclick="openFolderSelector('chatVocabFolderIds')">
+              <div class="tags-wrapper">${renderFolderFilterTags(uiState.chatVocabFolderIds, state)}</div>
+              <button class="tag-add-btn"><i class="fas fa-plus"></i></button>
+            </div>
+          </div>` : ''}
+
           ${(uiState.chatPracticeType === 'grammar' || uiState.chatPracticeType === 'mixed') ? `
           <div class="chapter-filter-item" style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 0.85rem; color: var(--neon-cyan); min-width: 40px;">文法</span>
@@ -3102,6 +3732,8 @@ function renderChatView() {
         </div>
         <button onclick="openTestBookmarkDialog('chat')" class="btn secondary chapter-bookmark-btn" style="color: #ffc107; border-color: #ffc107; margin-top: 5px;">⭐ 標記紀錄</button>
       </div>
+
+      <p class="message">${poolHint}</p>
 
       <div class="grammar-pattern-card">
         <strong style="color: var(--neon-cyan);">${isListening ? '🎧 請聽音檔：' : '✍️ 請翻譯單字或句子：'}</strong>
@@ -3183,6 +3815,7 @@ function renderChatView() {
     });
   });
 
+
   if (isListening && mission.ko) {
     window.playExampleSentence(mission.ko);
     const replayBtn = container.querySelector('#replayMissionBtn');
@@ -3204,7 +3837,8 @@ function renderChatView() {
   });
 }
 
-function refreshChatMission() {
+function buildChatPool() {
+  const state = getState();
   let targetGrammar = grammarData;
   let targetVocab = vocabData;
 
@@ -3222,6 +3856,8 @@ function refreshChatMission() {
     }
   }
 
+  targetVocab = filterVocabByFolders(targetVocab, uiState.chatVocabFolderIds, state);
+
   let pool = [];
   const grammarPool = targetGrammar.flatMap((g) => g.examples || []);
   const vocabPool = targetVocab.map((v) => ({ ko: v.ko, zh: v.zh }));
@@ -3235,6 +3871,11 @@ function refreshChatMission() {
   }
 
   pool = pool.filter((item) => item && item.ko && item.zh);
+  return { pool };
+}
+
+function refreshChatMission() {
+  const { pool } = buildChatPool();
 
   if (!pool.length) {
     uiState.chatMission = {
@@ -3607,6 +4248,18 @@ window.openChapterSelector = function(stateKey, dataType) {
   dialog.showModal();
 };
 
+window.openFolderSelector = function(stateKey) {
+  openFolderSelector(stateKey);
+};
+
+window.selectAllFolderFilters = function() {
+  selectAllFolderFilters();
+};
+
+window.clearAllFolderFilters = function() {
+  clearAllFolderFilters();
+};
+
 window.saveChapterSelection = function() {
   if (currentSelectingStateKey) {
     const sorted = [...currentSelectingParts].sort((a, b) => a - b);
@@ -3621,6 +4274,10 @@ window.saveChapterSelection = function() {
     }
   }
   document.getElementById('chapterSelectDialog').close();
+};
+
+window.saveFolderSelection = function() {
+  saveFolderSelection();
 };
 
 window.selectAllChapters = function() {

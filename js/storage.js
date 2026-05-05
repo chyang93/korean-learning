@@ -7,6 +7,8 @@ const defaultState = {
   testHistory: [],
   testBookmarksVocab: [],
   testBookmarksChat: [],
+  folders: [],
+  wordFolderMap: {},
   lastAccessed: {
     chapterId: null,
     timestamp: 0
@@ -116,9 +118,35 @@ export function getState() {
   // Normalize bookmarked vocab IDs to string and remove legacy duplicates (e.g., 12 and "12").
   mergedProgress.bookmarkedVocab = unique((mergedProgress.bookmarkedVocab || []).map((id) => String(id)));
 
+  const normalizedFolders = Array.isArray(saved.folders) ? saved.folders : [];
+  const folders = normalizedFolders
+    .filter((folder) => folder && folder.id && folder.name)
+    .map((folder) => ({
+      id: String(folder.id),
+      name: String(folder.name),
+      createdAt: Number(folder.createdAt) || 0
+    }))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const folderIdSet = new Set(folders.map((folder) => folder.id));
+
+  const rawMap = saved.wordFolderMap && typeof saved.wordFolderMap === 'object'
+    ? saved.wordFolderMap
+    : {};
+  const wordFolderMap = Object.entries(rawMap).reduce((acc, [wordId, folderIds]) => {
+    const normalized = unique((Array.isArray(folderIds) ? folderIds : [])
+      .map((id) => String(id))
+      .filter((id) => folderIdSet.has(id)));
+    if (normalized.length > 0) {
+      acc[String(wordId)] = normalized;
+    }
+    return acc;
+  }, {});
+
   return {
     ...defaultState,
     ...saved,
+    folders,
+    wordFolderMap,
     progress: mergedProgress,
     settings: { ...defaultState.settings, ...saved.settings }
   };
@@ -133,6 +161,76 @@ export function clearAllData() {
   state.testHistory = [];
   state.testBookmarksVocab = [];
   state.testBookmarksChat = [];
+  setState(state);
+  return state;
+}
+
+export function addFolder(name) {
+  const state = getState();
+  const createdAt = Date.now();
+  const folder = {
+    id: `f_${createdAt}`,
+    name: String(name || ''),
+    createdAt
+  };
+
+  state.folders = [...(state.folders || []), folder]
+    .sort((a, b) => Number(a.createdAt) - Number(b.createdAt));
+  setState(state);
+  return folder;
+}
+
+export function renameFolder(folderId, name) {
+  const state = getState();
+  const folders = Array.isArray(state.folders) ? state.folders : [];
+  state.folders = folders.map((folder) => {
+    if (String(folder.id) !== String(folderId)) {
+      return folder;
+    }
+    return {
+      ...folder,
+      name: String(name || '')
+    };
+  });
+  setState(state);
+  return state;
+}
+
+export function deleteFolder(folderId) {
+  const state = getState();
+  const targetId = String(folderId);
+  state.folders = (state.folders || []).filter((folder) => String(folder.id) !== targetId);
+
+  const nextMap = {};
+  Object.entries(state.wordFolderMap || {}).forEach(([wordId, folderIds]) => {
+    const remaining = (Array.isArray(folderIds) ? folderIds : [])
+      .map((id) => String(id))
+      .filter((id) => id !== targetId);
+    if (remaining.length > 0) {
+      nextMap[String(wordId)] = unique(remaining);
+    }
+  });
+
+  state.wordFolderMap = nextMap;
+  setState(state);
+  return state;
+}
+
+export function updateWordFolders(wordId, folderIds) {
+  const state = getState();
+  const folderIdSet = new Set((state.folders || []).map((folder) => String(folder.id)));
+  const normalized = unique((Array.isArray(folderIds) ? folderIds : [])
+    .map((id) => String(id))
+    .filter((id) => folderIdSet.has(id)));
+
+  const nextMap = { ...(state.wordFolderMap || {}) };
+  if (normalized.length > 0) {
+    nextMap[String(wordId)] = normalized;
+  } else {
+    delete nextMap[String(wordId)];
+  }
+
+  state.wordFolderMap = nextMap;
   setState(state);
   return state;
 }
