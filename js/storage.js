@@ -4,6 +4,7 @@ let progressEventsBound = false;
 const defaultState = {
   userId: 'local_user',
   mode: 'linear',
+  updatedAt: 0,
   testHistory: [],
   testBookmarksVocab: [],
   testBookmarksChat: [],
@@ -145,6 +146,7 @@ export function getState() {
   return {
     ...defaultState,
     ...saved,
+    updatedAt: Number(saved.updatedAt) || 0,
     folders,
     wordFolderMap,
     progress: mergedProgress,
@@ -152,8 +154,12 @@ export function getState() {
   };
 }
 
-export function setState(state) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+export function setState(state, options = {}) {
+  const nextState = { ...state };
+  if (!options?.preserveUpdatedAt) {
+    nextState.updatedAt = Date.now();
+  }
+  localStorage.setItem(STATE_KEY, JSON.stringify(nextState));
 }
 
 export function clearAllData() {

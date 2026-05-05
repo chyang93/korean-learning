@@ -1,6 +1,7 @@
 import { loadGrammar, loadIrregularData, loadPronunciation, loadVocabulary } from './dataLoader.js';
 import {
   getState,
+  setState,
   addFolder,
   renameFolder,
   deleteFolder,
@@ -359,6 +360,10 @@ async function handleProgressSync(user) {
     const cloudState = docSnap.data();
 
     const isDataDifferent = (local, cloud) => {
+      const localUpdatedAt = Number(local.updatedAt) || 0;
+      const cloudUpdatedAt = Number(cloud.updatedAt) || 0;
+      if (localUpdatedAt !== cloudUpdatedAt) return true;
+
       const p1 = local.progress || {};
       const p2 = cloud.progress || {};
       
@@ -380,13 +385,20 @@ async function handleProgressSync(user) {
     };
 
     if (isDataDifferent(localState, cloudState)) {
+      const localUpdatedAt = Number(localState.updatedAt) || 0;
+      const cloudUpdatedAt = Number(cloudState.updatedAt) || 0;
       const autoSync = localState.settings?.autoSyncAcrossDevices;
+      const cloudIsNewer = cloudUpdatedAt >= localUpdatedAt;
+
       if (autoSync === true) {
-        const merged = mergeStateForConflict(localState, cloudState);
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
-        await setDoc(userRef, merged);
-        refreshCurrentRoute();
-        showInfo('✅ 已自動合併本機與雲端資料');
+        if (cloudIsNewer) {
+          setState(cloudState, { preserveUpdatedAt: true });
+          refreshCurrentRoute();
+          showInfo('✅ 已自動套用雲端較新紀錄');
+        } else {
+          await setDoc(userRef, localState);
+          showInfo('✅ 已自動上傳本機較新紀錄');
+        }
         return;
       }
 
@@ -435,13 +447,12 @@ const pLocal = localState.progress || {};
       );
 
       if (choice) {
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(cloudState));
+        setState(cloudState, { preserveUpdatedAt: true });
         refreshCurrentRoute();
         showInfo('✅ 已成功載入雲端進度');
       } else {
-        const merged = mergeStateForConflict(localState, cloudState);
-        localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(merged));
-        await setDoc(userRef, merged);
+        await setDoc(userRef, localState);
+        showInfo('✅ 已保留本機進度');
       }
     }
   } else {
