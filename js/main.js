@@ -437,6 +437,17 @@ const pLocal = localState.progress || {};
       if (localMarks !== cloudMarks)
         diffText.push(`• 測驗標記：本機 ${localMarks} 個 vs 雲端 ${cloudMarks} 個`);
 
+      // 6. 資料夾與關聯單字數量
+      const localFolderCount = (localState.folders || []).length;
+      const cloudFolderCount = (cloudState.folders || []).length;
+      if (localFolderCount !== cloudFolderCount)
+        diffText.push(`• 資料夾數量：本機 ${localFolderCount} 個 vs 雲端 ${cloudFolderCount} 個`);
+
+      const localFolderedWords = Object.keys(localState.wordFolderMap || {}).length;
+      const cloudFolderedWords = Object.keys(cloudState.wordFolderMap || {}).length;
+      if (localFolderedWords !== cloudFolderedWords)
+        diffText.push(`• 資料夾單字數量：本機 ${localFolderedWords} 筆 vs 雲端 ${cloudFolderedWords} 筆`);
+
       const diffString = diffText.length > 0 ? diffText.join('\n') : "• 標記或細部設定有所不同";
 
       const choice = window.confirm(
