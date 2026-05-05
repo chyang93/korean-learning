@@ -2588,10 +2588,14 @@ function renderVocabularyView() {
       </div>
 
       <div class="chapter-search-row">
-        <input id="vocabSearchInput" class="search-input" type="text" placeholder="搜尋單字或例句" value="${escapeAttr(vocabDraft || '')}" />
+        <input id="vocabSearchInput" class="search-input" type="text" placeholder="搜尋單字" value="${escapeAttr(vocabDraft || '')}" />
         <div class="search-actions">
-          <button id="applyVocabSearchBtn" class="btn secondary" type="button">搜尋</button>
-          <button id="clearVocabSearchBtn" class="btn secondary" type="button">清空</button>
+          <button id="applyVocabSearchBtn" class="btn secondary" type="button" title="搜尋">
+            <i class="fas fa-search"></i>
+          </button>
+          <button id="clearVocabSearchBtn" class="btn secondary" type="button" title="清空">
+            <i class="fas fa-eraser"></i>
+          </button>
         </div>
       </div>
 
@@ -3336,12 +3340,7 @@ function renderGrammarView() {
     if (uiState.grammarFilter === 'unlearned') return !learned.has(item.id);
     if (uiState.grammarFilter === 'bookmarked') return bookmarked.has(item.id);
     if (grammarQuery) {
-      const rule = item.grammarRule || {};
-      const exampleText = (item.examples || [])
-        .map((ex) => `${ex.ko || ''} ${ex.zh || ''}`)
-        .join(' ');
-      return [item.title, rule.explanation, rule.note, rule.rule, exampleText]
-        .some((field) => textIncludesQuery(field, grammarQuery));
+      return textIncludesQuery(item.title, grammarQuery);
     }
     return true;
   });
@@ -3388,10 +3387,14 @@ function renderGrammarView() {
       </div>
 
       <div class="chapter-search-row">
-        <input id="grammarSearchInput" class="search-input" type="text" placeholder="搜尋課程或例句" value="${escapeAttr(grammarDraft || '')}" />
+        <input id="grammarSearchInput" class="search-input" type="text" placeholder="搜尋文法標題" value="${escapeAttr(grammarDraft || '')}" />
         <div class="search-actions">
-          <button id="applyGrammarSearchBtn" class="btn secondary" type="button">搜尋</button>
-          <button id="clearGrammarSearchBtn" class="btn secondary" type="button">清空</button>
+          <button id="applyGrammarSearchBtn" class="btn secondary" type="button" title="搜尋">
+            <i class="fas fa-search"></i>
+          </button>
+          <button id="clearGrammarSearchBtn" class="btn secondary" type="button" title="清空">
+            <i class="fas fa-eraser"></i>
+          </button>
         </div>
       </div>
 
