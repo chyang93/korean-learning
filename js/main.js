@@ -619,26 +619,16 @@ const audioController = {
         }
       };
 
-      // 🟢 新增：逾時保護，防止 LINE 瀏覽器無聲卡死
-      const timeout = setTimeout(() => {
-        console.warn('⏳ [Debug] 語音播放逾時，強迫跳過');
-        this.stopIndicator();
-        notifyFailure();
-        resolve();
-      }, 5000);
-
       try {
         speak(text, {
           onstart: () => {
             this.startIndicator();
           },
           onend: () => {
-            clearTimeout(timeout);
             this.stopIndicator();
             resolve();
           },
           onerror: () => {
-            clearTimeout(timeout);
             this.stopIndicator();
             notifyFailure();
             // 這裡不再 reject 報錯，避免中斷教學流程
@@ -646,7 +636,6 @@ const audioController = {
           }
         });
       } catch (error) {
-        clearTimeout(timeout);
         this.stopIndicator();
         notifyFailure();
         resolve();

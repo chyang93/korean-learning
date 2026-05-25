@@ -856,6 +856,33 @@ body.liaison-contrast-active .pronunciation-hint {
   .app-content {
     padding: 0 12px 20px;
   }
+
+  .row label {
+    width: 100%;
+  }
+
+  .row select,
+  .row .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  #grammarPartSelect,
+  #pronunciationChapterSelect,
+  #partSelect,
+  #vocabFolderSelect {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .chapter-search-row {
+    flex-wrap: wrap;
+  }
+
+  .chapter-search-row .search-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* --- 影片感學習模式動畫 --- */
