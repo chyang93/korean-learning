@@ -252,7 +252,32 @@ export function patchSettings(patch) {
   const state = getState();
   state.settings = { ...state.settings, ...patch };
   setState(state);
+  
+  // 🟢 新增：設定變更後立即同步到雲端
+  syncSettingsToCloud(state);
+  
   return state;
+}
+
+// 🟢 新增：同步設定到雲端的輔助函數
+async function syncSettingsToCloud(state) {
+  try {
+    // 動態導入以避免循環依賴
+    const { auth, db } = await import('./firebase-config.js');
+    if (!auth || !db) return;
+    
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+    if (!setDoc || !doc) return;
+
+    await setDoc(doc(db, 'users', user.uid), { settings: state.settings }, { merge: true });
+    console.log('☁️ 設定已同步至雲端:', state.settings);
+  } catch (error) {
+    console.error('❌ 設定同步失敗:', error);
+    // 不拋出錯誤，避免中斷用戶操作
+  }
 }
 
 export function setMode(mode) {

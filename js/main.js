@@ -389,9 +389,17 @@ async function handleProgressSync(user) {
     if (isDataDifferent(localState, cloudState)) {
       const localUpdatedAt = Number(localState.updatedAt) || 0;
       const cloudUpdatedAt = Number(cloudState.updatedAt) || 0;
-      const autoSync = localState.settings?.autoSyncAcrossDevices;
+      // 優先使用雲端的設定，確保跨設備一致
+      const autoSync = cloudState.settings?.autoSyncAcrossDevices || localState.settings?.autoSyncAcrossDevices;
       const cloudIsNewer = cloudUpdatedAt >= localUpdatedAt;
       const isFirstLogin = !getHasLoggedInBefore();
+
+      // 登入時同步雲端的設定到本機
+      if (cloudState.settings) {
+        const mergedSettings = { ...localState.settings, ...cloudState.settings };
+        const updatedLocalState = { ...localState, settings: mergedSettings };
+        setState(updatedLocalState, { preserveUpdatedAt: true });
+      }
 
       // 首次登入時，無論 autoSync 設定為何，都強制顯示確認對話
       if (isFirstLogin) {
