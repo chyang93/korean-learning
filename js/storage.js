@@ -538,3 +538,15 @@ export function clearTestBookmarks(type) {
   if (type === 'chat') state.testBookmarksChat = [];
   setState(state);
 }
+
+// 首次登入狀態管理
+const HAS_LOGGED_IN_BEFORE_KEY = 'korean_hasLoggedInBefore';
+
+export function getHasLoggedInBefore() {
+  const value = localStorage.getItem(HAS_LOGGED_IN_BEFORE_KEY);
+  return value === 'true';
+}
+
+export function setHasLoggedInBefore() {
+  localStorage.setItem(HAS_LOGGED_IN_BEFORE_KEY, 'true');
+}

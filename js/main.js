@@ -30,7 +30,9 @@ import {
   toggleTestBookmarkItem,
   deleteTestBookmark,
   clearTestBookmarks,
-  clearAllData
+  clearAllData,
+  getHasLoggedInBefore,
+  setHasLoggedInBefore
 } from './storage.js';
 import {
   setSpeed,
@@ -389,8 +391,15 @@ async function handleProgressSync(user) {
       const cloudUpdatedAt = Number(cloudState.updatedAt) || 0;
       const autoSync = localState.settings?.autoSyncAcrossDevices;
       const cloudIsNewer = cloudUpdatedAt >= localUpdatedAt;
+      const isFirstLogin = !getHasLoggedInBefore();
 
-      if (autoSync === true) {
+      // 首次登入時，無論 autoSync 設定為何，都強制顯示確認對話
+      if (isFirstLogin) {
+        // 標記已登入一次
+        setHasLoggedInBefore();
+        // 繼續執行下面的確認對話邏輯
+      } else if (autoSync === true) {
+        // 非首次登入且啟用自動覆蓋，直接自動同步
         if (cloudIsNewer) {
           setState(cloudState, { preserveUpdatedAt: true });
           refreshCurrentRoute();
@@ -449,9 +458,11 @@ const pLocal = localState.progress || {};
         diffText.push(`• 資料夾單字數量：本機 ${localFolderedWords} 筆 vs 雲端 ${cloudFolderedWords} 筆`);
 
       const diffString = diffText.length > 0 ? diffText.join('\n') : "• 標記或細部設定有所不同";
+      const firstLoginMsg = isFirstLogin ? '這是您首次使用此裝置登入，請確認要使用哪個版本的資料。\n\n' : '';
 
       const choice = window.confirm(
         `🔍 發現不同裝置的紀錄不一致！\n\n` +
+        `${firstLoginMsg}` +
         `${diffString}\n\n` +
         `按「確定」：下載雲端進度（覆蓋此裝置）\n` +
         `按「取消」：保留本機進度（將本機紀錄合併至雲端）`
