@@ -399,15 +399,10 @@ async function handleProgressSync(user) {
         setHasLoggedInBefore();
         // 繼續執行下面的確認對話邏輯
       } else if (autoSync === true) {
-        // 非首次登入且啟用自動覆蓋，直接自動同步
-        if (cloudIsNewer) {
-          setState(cloudState, { preserveUpdatedAt: true });
-          refreshCurrentRoute();
-          showInfo('✅ 已自動套用雲端較新紀錄');
-        } else {
-          await setDoc(userRef, localState);
-          showInfo('✅ 已自動上傳本機較新紀錄');
-        }
+        // 非首次登入且啟用自動覆蓋，始終優先使用雲端資料
+        setState(cloudState, { preserveUpdatedAt: true });
+        refreshCurrentRoute();
+        showInfo('✅ 已自動套用雲端紀錄');
         return;
       }
 
