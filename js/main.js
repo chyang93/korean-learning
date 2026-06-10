@@ -47,15 +47,15 @@ import {
 import { annotateKoreanText } from './koreanUtils.js';
 import {
   auth,
-  db,
+  rtdb,
   googleProvider,
   signInWithPopup,
   onAuthStateChanged,
   signOut,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDoc
+  ref,
+  set,
+  get,
+  onValue
 } from './firebase-config.js';
 import { OfflineQuizEngine } from './quizEngine.js';
 
@@ -227,6 +227,7 @@ const uiState = {
 
 const STATE_STORAGE_KEY = 'koreanAppState';
 let currentAuthUser = null;
+let progressSyncUnsubscribe = null;
 
 function uniqueArray(values) {
   return [...new Set(Array.isArray(values) ? values : [])];
@@ -341,8 +342,8 @@ async function triggerCloudSave() {
   if (!localState) return;
 
   try {
-    await setDoc(doc(db, 'users', user.uid), localState);
-    console.log('☁️ 進度已在背景自動備份至雲端');
+    await set(ref(rtdb, `users/${user.uid}`), localState);
+    console.log('☁️ 進度已在背景自動備份至雲端 Realtime Database');
   } catch (error) {
     console.error('背景同步失敗:', error);
   }
@@ -354,127 +355,152 @@ async function triggerCloudSave() {
 // 🟢 修正：恢復詳細差異文字顯示
 // 🟢 修正 1：確保顯示「所有項目」的詳細差異，並納入全能測試比對
 async function handleProgressSync(user) {
-  const userRef = doc(db, 'users', user.uid);
-  const docSnap = await getDoc(userRef);
   const localState = getState();
+  if (!localState) return;
 
-  if (docSnap.exists()) {
-    const cloudState = docSnap.data();
-
-    const isDataDifferent = (local, cloud) => {
-      const localUpdatedAt = Number(local.updatedAt) || 0;
-      const cloudUpdatedAt = Number(cloud.updatedAt) || 0;
-      if (localUpdatedAt !== cloudUpdatedAt) return true;
-
-      const p1 = local.progress || {};
-      const p2 = cloud.progress || {};
-      
-      // 1. 檢查線性進度
-      if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
-      
-      // 2. 檢查所有學習與標記陣列長度
-      const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
-      for (const key of keys) {
-        if ((p1[key] || []).length !== (p2[key] || []).length) return true;
-      }
-      
-      // 3. 檢查測驗相關數量 (包含全能測試標記)
-      if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
-      if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
-      if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true; // 🟢 補上此項
-
-      return false;
-    };
-
-    if (isDataDifferent(localState, cloudState)) {
-      const localUpdatedAt = Number(localState.updatedAt) || 0;
-      const cloudUpdatedAt = Number(cloudState.updatedAt) || 0;
-      const autoSync = localState.settings?.autoSyncAcrossDevices;
-      const cloudIsNewer = cloudUpdatedAt >= localUpdatedAt;
-      const isFirstLogin = !getHasLoggedInBefore();
-
-      // 首次登入時，無論 autoSync 設定為何，都強制顯示確認對話
-      if (isFirstLogin) {
-        // 標記已登入一次
-        setHasLoggedInBefore();
-        // 繼續執行下面的確認對話邏輯
-      } else if (autoSync === true) {
-        // 非首次登入且啟用自動覆蓋，始終優先使用雲端資料
-        setState(cloudState, { preserveUpdatedAt: true });
-        refreshCurrentRoute();
-        showInfo('✅ 已自動套用雲端紀錄');
-        return;
-      }
-
-const pLocal = localState.progress || {};
-      const pCloud = cloudState.progress || {};
-      const diffText = [];
-      
-      // 1. 課程進度
-      if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) 
-        diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId} vs 雲端 ID ${pCloud.currentLinearId}`);
-      
-      // 2. 單字 (已學 & 標記)
-      if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) 
-        diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} vs 雲端 ${pCloud.learnedVocab?.length || 0}`);
-      if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) 
-        diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} vs 雲端 ${pCloud.bookmarkedVocab?.length || 0}`);
-      
-      // 3. 文法 (已學 & 標記)
-      if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) 
-        diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} vs 雲端 ${pCloud.learnedGrammar?.length || 0}`);
-      if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) 
-        diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0}`);
-
-      // 4. 發音 (已學 & 標記)
-      if ((pLocal.learnedPronunciation?.length || 0) !== (pCloud.learnedPronunciation?.length || 0)) 
-        diffText.push(`• 已學發音：本機 ${pLocal.learnedPronunciation?.length || 0} vs 雲端 ${pCloud.learnedPronunciation?.length || 0}`);
-      if ((pLocal.bookmarkedPronunciation?.length || 0) !== (pCloud.bookmarkedPronunciation?.length || 0)) 
-        diffText.push(`• 標記發音：本機 ${pLocal.bookmarkedPronunciation?.length || 0} vs 雲端 ${pCloud.bookmarkedPronunciation?.length || 0}`);
-      
-      // 5. 測驗歷史與標記
-      if ((localState.testHistory?.length || 0) !== (cloudState.testHistory?.length || 0)) 
-        diffText.push(`• 成績紀錄：本機 ${localState.testHistory?.length || 0} 筆 vs 雲端 ${cloudState.testHistory?.length || 0} 筆`);
-
-      const localMarks = (localState.testBookmarksVocab?.length || 0) + (localState.testBookmarksChat?.length || 0);
-      const cloudMarks = (cloudState.testBookmarksVocab?.length || 0) + (cloudState.testBookmarksChat?.length || 0);
-      if (localMarks !== cloudMarks)
-        diffText.push(`• 測驗標記：本機 ${localMarks} 個 vs 雲端 ${cloudMarks} 個`);
-
-      // 6. 資料夾與關聯單字數量
-      const localFolderCount = (localState.folders || []).length;
-      const cloudFolderCount = (cloudState.folders || []).length;
-      if (localFolderCount !== cloudFolderCount)
-        diffText.push(`• 資料夾數量：本機 ${localFolderCount} 個 vs 雲端 ${cloudFolderCount} 個`);
-
-      const localFolderedWords = Object.keys(localState.wordFolderMap || {}).length;
-      const cloudFolderedWords = Object.keys(cloudState.wordFolderMap || {}).length;
-      if (localFolderedWords !== cloudFolderedWords)
-        diffText.push(`• 資料夾單字數量：本機 ${localFolderedWords} 筆 vs 雲端 ${cloudFolderedWords} 筆`);
-
-      const diffString = diffText.length > 0 ? diffText.join('\n') : "• 標記或細部設定有所不同";
-      const firstLoginMsg = isFirstLogin ? '這是您首次使用此裝置登入，請確認要使用哪個版本的資料。\n\n' : '';
-
-      const choice = window.confirm(
-        `🔍 發現不同裝置的紀錄不一致！\n\n` +
-        `${firstLoginMsg}` +
-        `${diffString}\n\n` +
-        `按「確定」：下載雲端進度（覆蓋此裝置）\n` +
-        `按「取消」：保留本機進度（將本機紀錄合併至雲端）`
-      );
-
-      if (choice) {
-        setState(cloudState, { preserveUpdatedAt: true });
-        refreshCurrentRoute();
-        showInfo('✅ 已成功載入雲端進度');
-      } else {
-        await setDoc(userRef, localState);
-        showInfo('✅ 已保留本機進度');
-      }
-    }
-  } else {
-    await setDoc(userRef, localState);
+  if (typeof progressSyncUnsubscribe === 'function') {
+    progressSyncUnsubscribe();
+    progressSyncUnsubscribe = null;
   }
+
+  const userRef = ref(rtdb, `users/${user.uid}`);
+  let lastCloudSnapshot = '';
+
+  const isDataDifferent = (local, cloud) => {
+    const localUpdatedAt = Number(local.updatedAt) || 0;
+    const cloudUpdatedAt = Number(cloud.updatedAt) || 0;
+    if (localUpdatedAt !== cloudUpdatedAt) return true;
+
+    const p1 = local.progress || {};
+    const p2 = cloud.progress || {};
+
+    if (Number(p1.currentLinearId || -200) !== Number(p2.currentLinearId || -200)) return true;
+
+    const keys = ['learnedVocab', 'learnedGrammar', 'learnedPronunciation', 'bookmarkedVocab', 'bookmarkedGrammar', 'bookmarkedPronunciation'];
+    for (const key of keys) {
+      if ((p1[key] || []).length !== (p2[key] || []).length) return true;
+    }
+
+    if ((local.testHistory?.length || 0) !== (cloud.testHistory?.length || 0)) return true;
+    if ((local.testBookmarksVocab?.length || 0) !== (cloud.testBookmarksVocab?.length || 0)) return true;
+    if ((local.testBookmarksChat?.length || 0) !== (cloud.testBookmarksChat?.length || 0)) return true;
+
+    return false;
+  };
+
+  const applyCloudSnapshot = async (snapshot) => {
+    const currentLocalState = getState();
+    if (!currentLocalState) return;
+
+    if (!snapshot.exists()) {
+      await set(userRef, currentLocalState);
+      lastCloudSnapshot = JSON.stringify(currentLocalState);
+      return;
+    }
+
+    const cloudState = snapshot.val() || {};
+    const cloudSnapshot = JSON.stringify(cloudState);
+    if (cloudSnapshot === lastCloudSnapshot) {
+      return;
+    }
+    lastCloudSnapshot = cloudSnapshot;
+
+    if (!isDataDifferent(currentLocalState, cloudState)) {
+      return;
+    }
+
+    const autoSync = currentLocalState.settings?.autoSyncAcrossDevices;
+    const isFirstLogin = !getHasLoggedInBefore();
+
+    if (isFirstLogin) {
+      setHasLoggedInBefore();
+    } else if (autoSync === true) {
+      setState(cloudState, { preserveUpdatedAt: true });
+      refreshCurrentRoute();
+      showInfo('✅ 已自動套用雲端紀錄');
+      return;
+    }
+
+    const pLocal = currentLocalState.progress || {};
+    const pCloud = cloudState.progress || {};
+    const diffText = [];
+
+    if (Number(pLocal.currentLinearId) !== Number(pCloud.currentLinearId)) {
+      diffText.push(`• 課程進度：本機 ID ${pLocal.currentLinearId} vs 雲端 ID ${pCloud.currentLinearId}`);
+    }
+    if ((pLocal.learnedVocab?.length || 0) !== (pCloud.learnedVocab?.length || 0)) {
+      diffText.push(`• 已學單字：本機 ${pLocal.learnedVocab?.length || 0} vs 雲端 ${pCloud.learnedVocab?.length || 0}`);
+    }
+    if ((pLocal.bookmarkedVocab?.length || 0) !== (pCloud.bookmarkedVocab?.length || 0)) {
+      diffText.push(`• 標記單字：本機 ${pLocal.bookmarkedVocab?.length || 0} vs 雲端 ${pCloud.bookmarkedVocab?.length || 0}`);
+    }
+    if ((pLocal.learnedGrammar?.length || 0) !== (pCloud.learnedGrammar?.length || 0)) {
+      diffText.push(`• 已學文法：本機 ${pLocal.learnedGrammar?.length || 0} vs 雲端 ${pCloud.learnedGrammar?.length || 0}`);
+    }
+    if ((pLocal.bookmarkedGrammar?.length || 0) !== (pCloud.bookmarkedGrammar?.length || 0)) {
+      diffText.push(`• 標記文法：本機 ${pLocal.bookmarkedGrammar?.length || 0} vs 雲端 ${pCloud.bookmarkedGrammar?.length || 0}`);
+    }
+    if ((pLocal.learnedPronunciation?.length || 0) !== (pCloud.learnedPronunciation?.length || 0)) {
+      diffText.push(`• 已學發音：本機 ${pLocal.learnedPronunciation?.length || 0} vs 雲端 ${pCloud.learnedPronunciation?.length || 0}`);
+    }
+    if ((pLocal.bookmarkedPronunciation?.length || 0) !== (pCloud.bookmarkedPronunciation?.length || 0)) {
+      diffText.push(`• 標記發音：本機 ${pLocal.bookmarkedPronunciation?.length || 0} vs 雲端 ${pCloud.bookmarkedPronunciation?.length || 0}`);
+    }
+    if ((currentLocalState.testHistory?.length || 0) !== (cloudState.testHistory?.length || 0)) {
+      diffText.push(`• 成績紀錄：本機 ${currentLocalState.testHistory?.length || 0} 筆 vs 雲端 ${cloudState.testHistory?.length || 0} 筆`);
+    }
+
+    const localMarks = (currentLocalState.testBookmarksVocab?.length || 0) + (currentLocalState.testBookmarksChat?.length || 0);
+    const cloudMarks = (cloudState.testBookmarksVocab?.length || 0) + (cloudState.testBookmarksChat?.length || 0);
+    if (localMarks !== cloudMarks) {
+      diffText.push(`• 測驗標記：本機 ${localMarks} 個 vs 雲端 ${cloudMarks} 個`);
+    }
+
+    const localFolderCount = (currentLocalState.folders || []).length;
+    const cloudFolderCount = (cloudState.folders || []).length;
+    if (localFolderCount !== cloudFolderCount) {
+      diffText.push(`• 資料夾數量：本機 ${localFolderCount} 個 vs 雲端 ${cloudFolderCount} 個`);
+    }
+
+    const localFolderedWords = Object.keys(currentLocalState.wordFolderMap || {}).length;
+    const cloudFolderedWords = Object.keys(cloudState.wordFolderMap || {}).length;
+    if (localFolderedWords !== cloudFolderedWords) {
+      diffText.push(`• 資料夾單字數量：本機 ${localFolderedWords} 筆 vs 雲端 ${cloudFolderedWords} 筆`);
+    }
+
+    const diffString = diffText.length > 0 ? diffText.join('\n') : '• 標記或細部設定有所不同';
+    const firstLoginMsg = isFirstLogin ? '這是您首次使用此裝置登入，請確認要使用哪個版本的資料。\n\n' : '';
+
+    const choice = window.confirm(
+      `🔍 發現不同裝置的紀錄不一致！\n\n` +
+      `${firstLoginMsg}` +
+      `${diffString}\n\n` +
+      `按「確定」：下載雲端進度（覆蓋此裝置）\n` +
+      `按「取消」：保留本機進度（將本機紀錄合併至雲端）`
+    );
+
+    if (choice) {
+      setState(cloudState, { preserveUpdatedAt: true });
+      refreshCurrentRoute();
+      showInfo('✅ 已成功載入雲端進度');
+    } else {
+      await set(userRef, currentLocalState);
+      showInfo('✅ 已保留本機進度');
+    }
+  };
+
+  const initialSnapshot = await get(userRef);
+  await applyCloudSnapshot(initialSnapshot);
+
+  progressSyncUnsubscribe = onValue(userRef, async (snapshot) => {
+    try {
+      await applyCloudSnapshot(snapshot);
+    } catch (error) {
+      console.error('RTDB 即時同步失敗:', error);
+    }
+  }, (error) => {
+    console.error('RTDB 監聽失敗:', error);
+  });
 }
 
 function updateUserUI(user) {
@@ -858,6 +884,11 @@ async function init() {
       }
       updateUserUI(user);
       return;
+    }
+
+    if (typeof progressSyncUnsubscribe === 'function') {
+      progressSyncUnsubscribe();
+      progressSyncUnsubscribe = null;
     }
 
     updateUserUI(null);
