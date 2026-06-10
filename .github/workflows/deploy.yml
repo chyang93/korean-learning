@@ -1,85 +1,39 @@
-第 4 頁 「GitHub Actions 完整 CI/CD 管線」要刪除我目前沒看到對應工作流檔可佐證若沒有 .github/workflows，刪掉或改成未來規劃
+name: Deploy PWA Platform to GitHub Pages
 
+on:
+  push:
+    branches: [ "main" ] # 監聽主分支，只要執行 git push origin main 就會自動觸發管線
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-第 5 頁 「2.2 語音鏈併發挑戰」可保留若實際有 speechSynthesis / 播放控制，可保留用較平實語氣
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
 
+      - name: Setup Web Static Pages Infrastructure
+        uses: actions/configure-pages@v4
 
-第 7 到 8 頁 「不依賴任何繁重第三方前端框架」可保留若專案確實是 Vanilla JS，這是對的可保
+      - name: Upload Artifacts to Live Hosting Layer
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # 🚨 關鍵檢查點：
+          # 如果你的 index.html 就在 GitHub 的最外層（根目錄），請保持為 '.' 
+          # 如果 index.html 是放在某個子資料夾（例如叫做 korean-app），請改成 './korean-app'
+          path: '.' 
 
-
-
-第 9 頁 「PWA 是由 Google 於 2015 年提出」要改寫表述可接受，但技術史寫法可更保守改成「由業界推動」會更穩
-
-
-
-第 9 頁 「網路代理快取層」「全權攔截全站所有 HTTPS 請求」要改寫語氣過滿，實作上通常是針對受控資源攔截改成「攔截部分請求並回應快取」
-
-
-
-第 14 頁 「Firebase Services 雲端資料同步層」要改寫專案是否真的完整雙向同步需更明確證據若只有部分功能，改成「預留雲端同步能力」
-
-
-
-第 14 頁 表格中的「GitHub Actions 管線」要刪除若無 workflow 檔或部署流程證據，屬於無中生有建議刪除或改成未來規劃
-
-
-
-第 16 頁 CI/CD 管線四步驟要刪除沒有對應 GitHub Actions 證據時不應寫成已實作改成未來規劃，或刪掉整段
-
-
-
-第 17 頁 「dataLoader.js 指數退避重試」要改寫若程式中沒有實作，不能直接寫成事實改成「具備快取載入與錯誤處理」
-
-
-
-第 17 頁 「storage.js 與 Firebase Realtime Database 低延遲雙向同步」要改寫除非 storage.js 真有完整同步邏輯，否則過度描述改成「預留或部分同步機制」
-
-
-
-第 19 頁 offline_results 佇列程式碼可保留若 storage.js 有相同結構可保留內容要和實作一致
-
-
-
-第 19 頁 「上傳成功後會立刻清空本地佇列」要改寫必須確認實際邏輯是否真的如此若沒有完整驗證，改成較保守描述
-
-
-
-第 20 頁 「前字有收音、非鼻音ㅇ、後字初聲為無音值ㅇ」要改寫這是規則描述，但寫法要更精準檢查用詞與條件式是否和程式一致
-
-
-
-第 21 頁 「捨棄沉重監聽器」要刪除這是價值判斷，不是必要技術事實建議刪除
-
-
-
-第 22 到 23 頁 測試環境與效能數據要改寫數字太滿、硬體版本可疑只保留真實測試過的設備和結果
-
-
-
-第 23 頁 「Lighthouse 100 分」要刪除或改寫沒有報告截圖或記錄就不應直接寫死若沒證據，改成「表現良好」
-
-
-
-第 23 頁 「FCP 12 毫秒」要刪除或改寫屬於精確性能數字，需實測證據無證據就改成定性描述
-
-
-
-第 23 頁 「JSON 平均延遲低於 15ms」要刪除或改寫同上建議改成區間或刪除
-
-
-
-第 24 頁 「currentLinearId、learnedVocab、testHistory」要改寫變數名稱要和程式實際命名一致依實作修正欄位名
-
-
-
-第 24 頁 「Set 聯集去重」「100% 一致性」要改寫前半可保留，後半太絕對改成「合併去重」即可第 24 頁 「500 次測試資料遺失率 0%」要刪除或改寫沒有實測表格就屬於無證據數據可改成「測試中未觀察到資料遺失」
-
-
-
-第 25 頁 「App 依然可以流暢秒開」要改寫絕對化語氣太重改成「可正常離線開啟」第 26 頁 「perfect 符合連音三大規則」要改寫英文夾中文太口語改成正式敘述
-
-
-
-教我如何確認這些東西及修改
+      - name: Deploy Production PWA App Instance
+        id: deployment
+        uses: actions/deploy-pages@v4
